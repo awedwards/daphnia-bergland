@@ -3,9 +3,10 @@ import pickle
 import os
 import numpy as np
 from collections import defaultdict
+import cv2
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
-SEGDATADIR = "/mt/spicy_4/daphnia/daphnia_with_appendages/"
+SEGDATADIR = "/mnt/spicy_4/daphnia/daphnia_with_appendages/"
 
 def save_pkl(obj,name):
     with open('/mnt/spicy_4/daphnia/analysis/' + name + '.pkl','wb') as f:
@@ -49,13 +50,14 @@ except IOError:
               if f.startswith("._"): print "Skipping " + f + ". Probably should delete that."
     save_pkl(clone_dict,"clonedata")
 
-count = 0
-for k in clone_dict.keys():
-    for clone in clone_dict[k]:
+for keys in clone_dict.keys():
+    for clone in clone_dict[keys]:
+        print "Calculating area for " + clone.filebase + "\n"
         try:
-            if clone.pixel_to_mm is None or np.isnan(clone.pixel_to_mm):
-                count += 1
+            split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
+            clone.calculate_area(split)
+            print clone.animal_area
         except AttributeError:
-            count += 1
+            pass
 
-print count
+save_pkl(clone_dict,"clonedata")

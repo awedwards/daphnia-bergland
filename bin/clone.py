@@ -29,7 +29,7 @@ class Clone(object):
 
         if os.path.isfile(os.path.join(datadir, "fullMicro_" + self.filebase)):
             self.micro_filepath = os.path.join(datadir, "fullMicro_" + self.filebase)
-
+        
         if os.path.isfile(os.path.join(segdatadir, "full_" + self.filebase)):
             self.full_seg_filepath = os.path.join(segdatadir, "full_" + self.filebase)
 
@@ -235,3 +235,33 @@ class Clone(object):
             except ZeroDivisionError:
                 continue
         return np.mean(measurements)
+
+    def split_channels(self,im):
+        # splits ilastik segmentation output into 4 channels
+        # 1 - background
+        # 2 - animal
+        # 3 - eye
+        # 4 - antennae
+
+        if not np.all(im[:,:,0]==im[:,:,1]) and not np.all(im[:,:,1]==im[:,:,2]):
+            print "Can only split segmentation images"
+            return im
+        
+        im = im[:,:,0]
+        w,h = im.shape
+        channel_ids = np.unique(im)
+        nchannels = len(channel_ids)
+
+        split_im = np.zeros((w,h,nchannels))
+        for i,channel in enumerate(channel_ids):
+            split_im[i, np.where(im == channel)] = 1
+
+        return split_im
+    
+    def calculate_area(self,im):
+        # input:  segmentation image
+        # merge animal and eye channels
+        if im.shape[2] == 4:
+            animal = im[:,:,1].copy()
+            animal[np.where(im[:,:,3])] = 1
+        self.animal_area = len(np.flatnonzero(animal))/(self.pixel_to_mm**2) 
