@@ -214,7 +214,7 @@ class Clone(object):
             npoints = max(np.abs(y2-y1),np.abs(x2-x1))
 
             x, y = np.linspace(y1, y2, npoints), np.linspace(x1, x2, npoints)
-            # Extract the values along the line, using cubic interpolation
+            # Extract the pixel values along the line
             zi = scipy.ndimage.map_coordinates(highcontrast, np.vstack((x,y)),mode='nearest')
             #mean shift the pixels
             zi = zi-pd.rolling_mean(zi,4)
@@ -261,7 +261,12 @@ class Clone(object):
     def calculate_area(self,im):
         # input:  segmentation image
         # merge animal and eye channels
-        if im.shape[2] == 4:
-            animal = im[:,:,1].copy()
-            animal[np.where(im[:,:,3])] = 1
-        self.animal_area = len(np.flatnonzero(animal))/(self.pixel_to_mm**2) 
+        try:
+            if im.shape[2] == 4:
+                animal = im[:,:,1].copy()
+                animal[np.where(im[:,:,3])] = 1
+
+                self.animal_area = len(np.flatnonzero(animal))/(self.pixel_to_mm**2) 
+        
+        except Exception as e:
+            print "Error while calculating area: " + str(e)
