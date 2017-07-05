@@ -10,6 +10,7 @@ DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/daphnia_with_appendages/"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
 doAreaCalc = False
+doEllipseFit = True
 
 files = os.listdir(DATADIR)
 clone_dict = defaultdict(list)
@@ -61,4 +62,14 @@ if doAreaCalc:
 
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
 
+if doEllipseFit:
+    for keys in clone_dict.keys():
+        for clone in clone_dict[keys]:
+            print "Fitting ellipse for " + clone.filebase + "\n"
+            try:
+                split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
+                clone.fit_ellipse(split)
 
+            except AttributeError:
+                pass
+    utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")

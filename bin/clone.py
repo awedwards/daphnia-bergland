@@ -45,6 +45,12 @@ class Clone(object):
         except Exception as e:
             print "Could not calculate pixel image because of the following error: " + str(e)
 
+        self.x_center = None
+        self.y_center = None
+        self.w_x = None
+        self.w_y = None
+        self.theta = None
+
     def crop(self,img):
 
         # aperture edges mess up image normalization, so we need to figure out which
@@ -261,8 +267,7 @@ class Clone(object):
             tmp[np.where(im==channel)] = 1
             arrays.append(tmp)
         
-        split_im =np.stack(arrays,axis=2)
-        return split_im
+        return np.stack(arrays,axis=2)
 
     def calculate_area(self,im):
         # input:  segmentation image
@@ -278,29 +283,36 @@ class Clone(object):
             print "Error while calculating area: " + str(e)
 
     def fit_ellipse(self,im):
-        # input: segmentation image
-        # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
-
-        # merge animal and eye channels
-        animal = utils.merge_channels(im,1,3)
-
-        #convert segmentation image to list of points
-        points = np.where(animal)
-        n = points.shape[1]
         
-        #calculate mean
-        mu = np.mean(points,axis=1)
-        x_center = mu[0]
-        y_center = mu[1]
+        try:
+            # input: segmentation image
+            # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
 
-        #calculate covariance matrix
-        z = points.T - mu*np.ones(points.shape).T
-        cov = np.dot(z.T,z)/n
-        w_x = np.sqrt(cov[0,0])
-        w_y = np.sqrt(cov[1,1])
-        rho = cov[0,1]/(w_x*w_y)
-        theta = -np.arctan(2*cov[0,1]/(cov[0,0]-cov[1,1]))/2
-        theta_p = np.int(theta/(np.pi/180))
+            # merge animal and eye channels
+            animal = utils.merge_channels(im,1,3)
 
-        return x_center,y_center,2*w_x,2*w_y,theta_p
-         
+            #convert segmentation image to list of points
+            points = np.array(np.where(animal))
+            n = points.shape[1]
+            
+            #calculate mean
+            mu = np.mean(points,axis=1)
+            x_center = mu[0]
+            y_center = mu[1]
+
+            #calculate covariance matrix
+            z = points.T - mu*np.ones(points.shape).T
+            cov = np.dot(z.T,z)/n
+            w_x = np.sqrt(cov[0,0])
+            w_y = np.sqrt(cov[1,1])
+            rho = cov[0,1]/(w_x*w_y)
+            theta = -np.arctan(2*cov[0,1]/(cov[0,0]-cov[1,1]))/2
+            theta_p = np.int(theta/(np.pi/180))
+
+            self.x_center = x_center
+            self.y_center = y_center
+            self.w_x = 2*w_x
+            self.w_y = 2*w_y
+            self.theta = theta_p
+        except Exception as e:
+            print "Error fitting ellipse: " + str(e)
