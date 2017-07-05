@@ -8,7 +8,7 @@ import cv2
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/daphnia_with_appendages/"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
-doAreaCalc = False
+doAreaCalc = True
 
 files = os.listdir(DATADIR)
 clone_dict = defaultdict(list)
@@ -54,7 +54,13 @@ if doAreaCalc:
                 split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
                 clone.calculate_area(split)
                 print clone.animal_area
+
             except AttributeError:
                 pass
 
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
+
+
+#for c in clones:
+#    if c.replicate == "1A":
+#            print c.animal_area

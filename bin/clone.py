@@ -18,7 +18,7 @@ class Clone(object):
         self.replicate = replicate
         self.rig = rig
         self.datetime = datetime
-        
+         
         delim = "_"
         self.filebase = delim.join((cloneid,treatment,replicate,rig,datetime))
         if os.path.isfile(os.path.join(datadir, "full_" + self.filebase)):
@@ -35,8 +35,10 @@ class Clone(object):
 
         if os.path.isfile(os.path.join(segdatadir, "close_" + self.filebase)):
             self.close_seg_filepath = os.path.join(segdatadir, "close_" + self.filebase)
-
+        
+        self.total_animal_pixels = None
         self.animal_area = None
+        
         try:
             self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
         except Exception as e:
@@ -251,22 +253,25 @@ class Clone(object):
         w,h = im.shape
         channel_ids = np.unique(im)
         nchannels = len(channel_ids)
-
-        split_im = np.zeros((w,h,nchannels))
-        for i,channel in enumerate(channel_ids):
-            split_im[i, np.where(im == channel)] = 1
-
+        
+        arrays = list()
+        for channel in channel_ids:
+            tmp = np.zeros((w,h))
+            tmp[np.where(im==channel)] = 1
+            arrays.append(tmp)
+        
+        split_im =np.stack(arrays,axis=2)
         return split_im
-    
+
     def calculate_area(self,im):
         # input:  segmentation image
-        # merge animal and eye channels
+        # merge animal and eye channels 
         try:
             if im.shape[2] == 4:
                 animal = im[:,:,1].copy()
                 animal[np.where(im[:,:,3])] = 1
-
-                self.animal_area = len(np.flatnonzero(animal))/(self.pixel_to_mm**2) 
+                self.total_animal_pixels = len(np.flatnonzero(animal))
+                self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
         
         except Exception as e:
             print "Error while calculating area: " + str(e)
