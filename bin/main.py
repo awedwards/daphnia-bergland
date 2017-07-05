@@ -1,5 +1,6 @@
 from clone import Clone
 import utils
+import plot
 import os
 import numpy as np
 from collections import defaultdict
@@ -8,7 +9,8 @@ import cv2
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/daphnia_with_appendages/"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
-doAreaCalc = True
+doAreaCalc = False
+doEllipseFit = True
 
 files = os.listdir(DATADIR)
 clone_dict = defaultdict(list)
@@ -60,7 +62,14 @@ if doAreaCalc:
 
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
 
+if doEllipseFit:
+    for keys in clone_dict.keys():
+        for clone in clone_dict[keys]:
+            print "Fitting ellipse for " + clone.filebase + "\n"
+            try:
+                split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
+                clone.fit_ellipse(split)
 
-#for c in clones:
-#    if c.replicate == "1A":
-#            print c.animal_area
+            except AttributeError:
+                pass
+    utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
