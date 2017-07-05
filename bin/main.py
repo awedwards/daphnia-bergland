@@ -1,5 +1,6 @@
 from clone import Clone
 import utils
+import plot
 import os
 import numpy as np
 from collections import defaultdict
@@ -8,7 +9,7 @@ import cv2
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/daphnia_with_appendages/"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
-doAreaCalc = True
+doAreaCalc = False
 
 files = os.listdir(DATADIR)
 clone_dict = defaultdict(list)
@@ -61,6 +62,3 @@ if doAreaCalc:
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
 
 
-#for c in clones:
-#    if c.replicate == "1A":
-#            print c.animal_area

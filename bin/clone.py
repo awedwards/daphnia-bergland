@@ -8,6 +8,7 @@ import scipy
 import scipy.ndimage
 import scipy.stats
 import pickle
+import utils
 
 class Clone(object):
     
@@ -268,10 +269,38 @@ class Clone(object):
         # merge animal and eye channels 
         try:
             if im.shape[2] == 4:
-                animal = im[:,:,1].copy()
-                animal[np.where(im[:,:,3])] = 1
+                animal = utils.merge_channels(im,1,3)
+                # count total number of pixels and divide by conversion factor
                 self.total_animal_pixels = len(np.flatnonzero(animal))
                 self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
         
         except Exception as e:
             print "Error while calculating area: " + str(e)
+
+    def fit_ellipse(self,im):
+        # input: segmentation image
+        # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
+
+        # merge animal and eye channels
+        animal = utils.merge_channels(im,1,3)
+
+        #convert segmentation image to list of points
+        points = np.where(animal)
+        n = points.shape[1]
+        
+        #calculate mean
+        mu = np.mean(points,axis=1)
+        x_center = mu[0]
+        y_center = mu[1]
+
+        #calculate covariance matrix
+        z = points.T - mu*np.ones(points.shape).T
+        cov = np.dot(z.T,z)/n
+        w_x = np.sqrt(cov[0,0])
+        w_y = np.sqrt(cov[1,1])
+        rho = cov[0,1]/(w_x*w_y)
+        theta = -np.arctan(2*cov[0,1]/(cov[0,0]-cov[1,1]))/2
+        theta_p = np.int(theta/(np.pi/180))
+
+        return x_center,y_center,2*w_x,2*w_y,theta_p
+         

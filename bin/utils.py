@@ -8,3 +8,8 @@ def save_pkl(obj, path, name):
 def load_pkl(name, path):
     with open(os.path.join(path,name) + '.pkl','rb') as f:
         return pickle.load(f)
+
+def merge_channels(im,channel1,channel2):
+    copy = im[:,:,channel2].copy()
+    copy[np.where(im[:,:,channel2]) = 1
+    return copy
