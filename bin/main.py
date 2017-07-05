@@ -48,28 +48,19 @@ except IOError:
                   if f.startswith("._"): print "Skipping " + f + ". Probably should delete that."
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
 
-if doAreaCalc:
-    for keys in clone_dict.keys():
+for keys in clone_dict.keys():
         for clone in clone_dict[keys]:
-            print "Calculating area for " + clone.filebase + "\n"
             try:
                 split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
-                clone.calculate_area(split)
-                print clone.animal_area
+                if doAreaCalc:
+                    print "Calculating area for " + clone.filebase + "\n"
+                    clone.calculate_area(split)
+                
+                if doEllipseFit:
+                    print "Fitting ellipse for " + clone.filebase + "\n"
+                    clone.fit_ellipse(split)
 
             except AttributeError:
                 pass
 
-    utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
-
-if doEllipseFit:
-    for keys in clone_dict.keys():
-        for clone in clone_dict[keys]:
-            print "Fitting ellipse for " + clone.filebase + "\n"
-            try:
-                split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
-                clone.fit_ellipse(split)
-
-            except AttributeError:
-                pass
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
