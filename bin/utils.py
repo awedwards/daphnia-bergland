@@ -11,6 +11,6 @@ def load_pkl(name, path):
         return pickle.load(f)
 
 def merge_channels(im,channel1,channel2):
-    copy = im[:,:,channel2].copy()
+    copy = im[:,:,channel1].copy()
     copy[np.where(im[:,:,channel2])] = 1
     return copy
