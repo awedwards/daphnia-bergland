@@ -10,7 +10,8 @@ DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/daphnia_with_appendages/"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
 doAreaCalc = False
-doEllipseFit = True
+doAnimalEllipseFit = False
+doEyeEllipseFit = False
 
 files = os.listdir(DATADIR)
 clone_dict = defaultdict(list)
@@ -48,7 +49,9 @@ except IOError:
                   if f.startswith("._"): print "Skipping " + f + ". Probably should delete that."
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
 
-for keys in clone_dict.keys():
+analysis = False
+if analysis:
+    for keys in clone_dict.keys():
         for clone in clone_dict[keys]:
             try:
                 split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
@@ -56,11 +59,15 @@ for keys in clone_dict.keys():
                     print "Calculating area for " + clone.filebase + "\n"
                     clone.calculate_area(split)
                 
-                if doEllipseFit:
+                if doAnimalEllipseFit:
                     print "Fitting ellipse for " + clone.filebase + "\n"
-                    clone.fit_ellipse(split)
-
+                    clone.fit_ellipse(split,"animal")
+                    
+                if doEyeEllipseFit:
+                    print "Fitting ellipse for eye of " + clone.filebase + "\n"
+                    clone.fit_ellipse(split,"eye")
             except AttributeError:
                 pass
 
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
+

@@ -37,6 +37,11 @@ class Clone(object):
         if os.path.isfile(os.path.join(segdatadir, "close_" + self.filebase)):
             self.close_seg_filepath = os.path.join(segdatadir, "close_" + self.filebase)
         
+        self.background_channel = 0
+        self.animal_channel = 1
+        self.eye_channel = 2
+        self.antennae_channel = 3
+
         self.total_animal_pixels = None
         self.animal_area = None
         
@@ -45,11 +50,17 @@ class Clone(object):
         except Exception as e:
             print "Could not calculate pixel image because of the following error: " + str(e)
 
-        self.x_center = None
-        self.y_center = None
-        self.w_x = None
-        self.w_y = None
-        self.theta = None
+        self.animal_x_center = None
+        self.animal_y_center = None
+        self.animal_w_x = None
+        self.animal_w_y = None
+        self.animal_theta = None
+        
+        self.eye_x_center = None
+        self.eye_y_center = None
+        self.eye_w_x = None
+        self.eye_w_y = None
+        self.eye_theta = None
 
     def crop(self,img):
 
@@ -274,7 +285,7 @@ class Clone(object):
         # merge animal and eye channels 
         try:
             if im.shape[2] == 4:
-                animal = utils.merge_channels(im,1,3)
+                animal = utils.merge_channels(im,self.animal_channel,self.eye_channel)
                 # count total number of pixels and divide by conversion factor
                 self.total_animal_pixels = len(np.flatnonzero(animal))
                 self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
@@ -282,17 +293,23 @@ class Clone(object):
         except Exception as e:
             print "Error while calculating area: " + str(e)
 
-    def fit_ellipse(self,im):
+    def fit_ellipse(self,im,objectType):
         
         try:
             # input: segmentation image
             # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
 
             # merge animal and eye channels
-            animal = utils.merge_channels(im,1,3)
+            if objectType == "animal":
+                ob = utils.merge_channels(im,self.animal_channel, self.eye_channel)
+            elif objectType == "eye":
+                ob = im[:,:,self.eye_channel]
+            else:
+                print "Don't know how to fit ellipse to this object type"
+                return
 
             #convert segmentation image to list of points
-            points = np.array(np.where(animal))
+            points = np.array(np.where(ob))
             n = points.shape[1]
             
             #calculate mean
@@ -308,11 +325,21 @@ class Clone(object):
             rho = cov[0,1]/(w_x*w_y)
             theta = -np.arctan(2*cov[0,1]/(cov[0,0]-cov[1,1]))/2
             theta_p = np.int(theta/(np.pi/180))
+            
+            setattr(self, objectType + "_x_center", x_center)
+            setattr(self, objectType + "_y_center", y_center)
+            setattr(self, objectType + "_w_x", 2*w_x)
+            setattr(self, objectType + "_w_y", 2*w_y)
+            setattr(self, objectType + "_theta", theta_p)
 
-            self.x_center = x_center
-            self.y_center = y_center
-            self.w_x = 2*w_x
-            self.w_y = 2*w_y
-            self.theta = theta_p
         except Exception as e:
             print "Error fitting ellipse: " + str(e)
+            return
+
+    def slice_pedestal(self,im):
+
+        #input : segmentation image
+        try:
+            pass
+        except Exception as e:
+            print "Error slicing pedestal: " + str(e)
