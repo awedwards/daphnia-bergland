@@ -323,20 +323,23 @@ class Clone(object):
             
             #eigenvalues and eigenvectors of covariance matrix correspond
             #to length of major/minor axes of ellipse
-            w_v = np.linalg.eig(cov)
+            w,v = np.linalg.eig(cov)
 
             #calculate 90% confidence intervals using eigenvalues to find length of axes
-            major = 2*np.sqrt(4.6*w[0])
-            minor = 2*np.sqrt(4.6*w[1])
+            maj = np.argmax(w)
+            minor = np.argmin(w)
+            
+            major_l = 2*np.sqrt(4.6*w[maj])
+            minor_l = 2*np.sqrt(4.6*w[minor])
 
-            v = v[np.argmax(w)]
-            theta = -np.arctan(v[1]/v[0])
+            v = v[maj]
+            theta = -np.arctan(v[minor]/v[maj])
             theta_p = np.int(theta/(np.pi/180))
 
             setattr(self, objectType + "_x_center", int(x_center))
             setattr(self, objectType + "_y_center", int(y_center))
-            setattr(self, objectType + "_major", int(major))
-            setattr(self, objectType + "_minor", int(minor))
+            setattr(self, objectType + "_major", int(major_l))
+            setattr(self, objectType + "_minor", int(minor_l))
             setattr(self, objectType + "_theta", int(theta_p))
 
         except Exception as e:
