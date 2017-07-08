@@ -52,14 +52,14 @@ class Clone(object):
 
         self.animal_x_center = None
         self.animal_y_center = None
-        self.animal_w_x = None
-        self.animal_w_y = None
+        self.animal_major = None
+        self.animal_minor = None
         self.animal_theta = None
         
         self.eye_x_center = None
         self.eye_y_center = None
-        self.eye_w_x = None
-        self.eye_w_y = None
+        self.eye_major = None
+        self.eye_minor = None
         self.eye_theta = None
 
     def crop(self,img):
@@ -320,16 +320,23 @@ class Clone(object):
             #calculate covariance matrix
             z = points.T - mu*np.ones(points.shape).T
             cov = np.dot(z.T,z)/n
-            w_x = np.sqrt(cov[0,0])
-            w_y = np.sqrt(cov[1,1])
-            rho = cov[0,1]/(w_x*w_y)
-            theta = -np.arctan(2*cov[0,1]/(cov[0,0]-cov[1,1]))/2
-            theta_p = np.int(theta/(np.pi/180))
             
+            #eigenvalues and eigenvectors of covariance matrix correspond
+            #to length of major/minor axes of ellipse
+            w_v = np.linalg.eig(cov)
+
+            #calculate 90% confidence intervals using eigenvalues to find length of axes
+            major = 2*np.sqrt(4.6*w[0])
+            minor = 2*np.sqrt(4.6*w[1])
+
+            v = v[np.argmax(w)]
+            theta = -np.arctan(v[1]/v[0])
+            theta_p = np.int(theta/(np.pi/180))
+
             setattr(self, objectType + "_x_center", int(x_center))
             setattr(self, objectType + "_y_center", int(y_center))
-            setattr(self, objectType + "_w_x", int(2*w_x))
-            setattr(self, objectType + "_w_y", int(2*w_y))
+            setattr(self, objectType + "_major", int(major))
+            setattr(self, objectType + "_minor", int(minor))
             setattr(self, objectType + "_theta", int(theta_p))
 
         except Exception as e:
