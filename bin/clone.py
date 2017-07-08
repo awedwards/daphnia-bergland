@@ -326,11 +326,11 @@ class Clone(object):
             theta = -np.arctan(2*cov[0,1]/(cov[0,0]-cov[1,1]))/2
             theta_p = np.int(theta/(np.pi/180))
             
-            setattr(self, objectType + "_x_center", x_center)
-            setattr(self, objectType + "_y_center", y_center)
-            setattr(self, objectType + "_w_x", 2*w_x)
-            setattr(self, objectType + "_w_y", 2*w_y)
-            setattr(self, objectType + "_theta", theta_p)
+            setattr(self, objectType + "_x_center", int(x_center))
+            setattr(self, objectType + "_y_center", int(y_center))
+            setattr(self, objectType + "_w_x", int(2*w_x))
+            setattr(self, objectType + "_w_y", int(2*w_y))
+            setattr(self, objectType + "_theta", int(theta_p))
 
         except Exception as e:
             print "Error fitting ellipse: " + str(e)

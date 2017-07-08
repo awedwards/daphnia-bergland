@@ -7,11 +7,11 @@ from collections import defaultdict
 import cv2
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
-SEGDATADIR = "/mnt/spicy_4/daphnia/daphnia_with_appendages/"
+SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/full_segmentation_output_20170708"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
-doAreaCalc = False
-doAnimalEllipseFit = False
-doEyeEllipseFit = False
+doAreaCalc = True
+doAnimalEllipseFit = True
+doEyeEllipseFit = True
 
 files = os.listdir(DATADIR)
 clone_dict = defaultdict(list)
@@ -49,25 +49,27 @@ except IOError:
                   if f.startswith("._"): print "Skipping " + f + ". Probably should delete that."
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
 
-analysis = False
-if analysis:
-    for keys in clone_dict.keys():
-        for clone in clone_dict[keys]:
-            try:
-                split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
-                if doAreaCalc:
-                    print "Calculating area for " + clone.filebase + "\n"
-                    clone.calculate_area(split)
-                
-                if doAnimalEllipseFit:
-                    print "Fitting ellipse for " + clone.filebase + "\n"
-                    clone.fit_ellipse(split,"animal")
+analysis = True
+with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
+    if analysis:
+        for keys in clone_dict.keys():
+            for clone in clone_dict[keys]:
+                print "Analyzing " + clone.filebase
+                try:
+                    split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
+                    if doAreaCalc:
+                        print "Calculating area for " + clone.filebase + "\n"
+                        clone.calculate_area(split)
                     
-                if doEyeEllipseFit:
-                    print "Fitting ellipse for eye of " + clone.filebase + "\n"
-                    clone.fit_ellipse(split,"eye")
-            except AttributeError:
-                pass
+                    if doAnimalEllipseFit:
+                        print "Fitting ellipse for " + clone.filebase + "\n"
+                        clone.fit_ellipse(split,"animal")
+                        
+                    if doEyeEllipseFit:
+                        print "Fitting ellipse for eye of " + clone.filebase + "\n"
+                        clone.fit_ellipse(split,"eye")
+                except AttributeError as e:
+                    f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")
+                    
 
-    utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
-
+        utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
