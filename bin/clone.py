@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import os
 import cv2
