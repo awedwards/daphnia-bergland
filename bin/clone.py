@@ -326,7 +326,7 @@ class Clone(object):
         except Exception as e:
             print "Error while calculating area: " + str(e)
 
-    def fit_ellipse(self,im,objectType):
+    def fit_ellipse(self,im,objectType, chi_2):
         
         try:
             # input: segmentation image
@@ -362,12 +362,11 @@ class Clone(object):
             maj = np.argmax(w)
             minor = np.argmin(w)
             
-            major_l = 2*np.sqrt(4.6*w[maj])
-            minor_l = 2*np.sqrt(4.6*w[minor])
+            major_l = 2*np.sqrt(chi_2*w[maj])
+            minor_l = 2*np.sqrt(chi_2*w[minor])
 
             v = v[maj]
             theta = -np.arctan(v[minor]/v[maj])
-            theta_p = np.int(theta/(np.pi/180))
 
             setattr(self, objectType + "_x_center", x_center)
             setattr(self, objectType + "_y_center", y_center)
@@ -378,7 +377,23 @@ class Clone(object):
         except Exception as e:
             print "Error fitting ellipse: " + str(e)
             return
-    
+
+    def fit_animal_ellipse(self,im):
+
+        # this method cleans up any obviously misclassified pixels and re-calculates ellipse
+
+        if im.shape[2] == 4: utils.merge_channels(im,self.animal_channel, self.eye_channel)
+
+        self.fit_ellipse(im,"animal",9.21)
+        animal = im.copy()
+        el = matplotlib.patches.Ellipse((int(self.animal_x_center),int(self.animal_y_center)), int(self.animal_major), int(self.animal_minor),int(theta*(180/np.pi)))
+        points = list(zip(*(c.flat for c in np.where(animal))))
+        
+        for i in points:
+            if not el.contains_point(i): animal[i] = 0                                               
+        
+        self.fit_ellipse(animal,"animal",4.6)
+
     def get_anatomical_directions(self):
         
         # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
