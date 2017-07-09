@@ -21,7 +21,9 @@ class Clone(object):
         self.datetime = datetime
          
         delim = "_"
-        self.filebase = delim.join((cloneid,treatment,replicate,rig,datetime))
+        ext = ".bmp"
+
+        self.filebase = delim.join((cloneid,treatment,replicate,rig,datetime)) + ext
         if os.path.isfile(os.path.join(datadir, "full_" + self.filebase)):
             self.full_filepath = os.path.join(datadir, "full_" + self.filebase)
         
@@ -61,6 +63,14 @@ class Clone(object):
         self.eye_major = None
         self.eye_minor = None
         self.eye_theta = None
+        
+        self.anterior = None
+        self.posterior = None
+        self.dorsal = None
+        self.ventral = None
+
+        self.eye_dorsal = None
+
 
     def crop(self,img):
 
@@ -176,8 +186,31 @@ class Clone(object):
                     threshold = max([x[1] for x in corners])
                     return img[:,threshold:]
             else: return self.crop(img[:,leftbound:rightbound])
+    
+    def dist(self,x,y):
+
+        # returns euclidean distance between two vectors
+        x = np.array(x)
+        y = np.array(y)
+        return np.linalg.norm(x-y)
+    
+    def find_zero_crossing(self,im,(x1, y1), (x2, y2)):
+        
+        # finds boundary of binary object (object = 1, background = 0)
+        npoints = max(np.abs(y2-y1),np.abs(x2-x1))
+        x,y = np.linspace(x1,x2,npoints),np.linspace(y1,y2,npoints)
+        zi = scipy.ndimage.map_coordinates(im,np.vstack((x,y)),mode='nearest')
+
+        for i,val in enumerate(zi):
+            if val <= 0:
+                return (x[i],y[i]) 
+        return
+
 
     def calc_pixel_to_mm(self,im):
+
+        # calculates the pixel to millimeter ratio for a clone given an image of
+        # a micrometer associated with clone
 
         gimg = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
@@ -336,15 +369,71 @@ class Clone(object):
             theta = -np.arctan(v[minor]/v[maj])
             theta_p = np.int(theta/(np.pi/180))
 
-            setattr(self, objectType + "_x_center", int(x_center))
-            setattr(self, objectType + "_y_center", int(y_center))
-            setattr(self, objectType + "_major", int(major_l))
-            setattr(self, objectType + "_minor", int(minor_l))
-            setattr(self, objectType + "_theta", int(theta_p))
+            setattr(self, objectType + "_x_center", x_center)
+            setattr(self, objectType + "_y_center", y_center)
+            setattr(self, objectType + "_major", major_l)
+            setattr(self, objectType + "_minor", minor_l)
+            setattr(self, objectType + "_theta", theta)
 
         except Exception as e:
             print "Error fitting ellipse: " + str(e)
             return
+    
+    def get_anatomical_directions(self):
+        
+        # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
+        # directions relative to the animal center
+
+        x = self.animal_x_center
+        y = self.animal_y_center
+        e_x = self.eye_x_center
+        e_y = self.eye_y_center
+        theta = self.animal_theta
+        minor = self.animal_minor
+        major = self.animal_major
+
+        major_vertex_1 = (x - 0.5*major*np.sin(theta), y - 0.5*major*np.cos(theta))
+        major_vertex_2 = (x + 0.5*major*np.sin(theta), y + 0.5*major*np.cos(theta))
+
+        minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
+        minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
+
+        if self.dist((e_x, e_y), major_vertex_1) < self.dist((e_x, e_y), major_vertex_2):
+            self.anterior = major_vertex_1
+            self.posterior = major_vertex_2
+        elif self.dist((e_x, e_y), major_vertex_2) < self.dist((e_x, e_y), major_vertex_1):
+            self.anterior = major_vertex_2
+            self.posterior = major_vertex_1
+ 
+        if self.dist((e_x, e_y), minor_vertex_1) < self.dist((e_x, e_y), minor_vertex_2):
+            self.ventral = minor_vertex_1
+            self.dorsal = minor_vertex_2
+        elif self.dist((e_x, e_y), minor_vertex_2) < self.dist((e_x, e_y), minor_vertex_1):
+            self.ventral = minor_vortex_2
+            self.dorsal = minor_vortex_1
+
+    def get_eye_dorsal(self,im):
+
+        # finds dorsal point of the eye
+
+        if im.shape[2] == 4:
+            im = im[:,:,self.eye_channel]
+
+        if self.dorsal == None: self.get_anatomical_directions()
+        
+        if not self.dorsal == None:
+
+            d_y = self.dorsal[1] - self.animal_y_center
+            d_x = self.dorsal[0] - self.animal_x_center
+
+            # draw line from eye center with same slope as dorsal axis
+
+            y1 = self.eye_y_center
+            x1 = self.eye_x_center
+            y2 = self.eye_y_center + d_y
+            x2 = self.eye_x_center + d_x
+            
+            self.eye_dorsal = self.find_zero_crossing(im,(x1,y1),(x2,y2))
 
     def slice_pedestal(self,im):
 
