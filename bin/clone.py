@@ -394,7 +394,6 @@ class Clone(object):
 
         self.spine = self.find_zero_crossing(im,(x1,y1),(x2,y2))
 
-
     def calculate_length(self):
 
         try:
@@ -515,6 +514,6 @@ class Clone(object):
 
         #input : segmentation image
         try:
-            pass
+            
         except Exception as e:
             print "Error slicing pedestal: " + str(e)
