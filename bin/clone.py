@@ -64,12 +64,17 @@ class Clone(object):
         self.eye_minor = None
         self.eye_theta = None
         
+        # these are directional vectors of anatomical direction
         self.anterior = None
         self.posterior = None
         self.dorsal = None
         self.ventral = None
 
+        # these are actual points on the animal
+
         self.eye_dorsal = None
+        self.head = None
+        self.tail = None
 
 
     def crop(self,img):
@@ -325,6 +330,56 @@ class Clone(object):
         
         except Exception as e:
             print "Error while calculating area: " + str(e)
+
+    def find_head(self,im):
+        
+        if im.shape[2] == 4:
+            im = utils.merge_channels(im,self.animal_channel, self.eye_channel)
+        
+        if self.anterior is None:
+            self.get_anatomical_directions()
+
+        if self.anterior is not None:
+            
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+            
+            d_x = x1 - self.anterior[0]
+            d_y = y1 - self.anterior[1]
+
+            y2 = y1 + d_y*1.5
+            x2 = x1 + d_x*1.5
+
+        self.head = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+    
+    def find_tail(self,im):
+        
+        if im.shape[2] == 4:
+            im = utils.merge_channels(im,self.animal_channel, self.eye_channel)
+        
+        if self.posterior is None:
+            self.get_anatomical_directions()
+
+        if self.posterior is not None:
+            
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+            
+            d_x = x1 - self.posterior[0]
+            d_y = y1 - self.posterior[1]
+
+            y2 = y1 + d_y*1.5
+            x2 = x1 + d_x*1.5
+
+      self.eye_dorsal = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+
+
+    def calculate_length(self):
+
+        try:
+            self.animal_length = self.dist(self.head,self.tail)/self.pixel_to_mm
+        except Exception as e:
+            print e
 
     def fit_ellipse(self,im,objectType):
         
