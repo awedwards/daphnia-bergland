@@ -75,7 +75,7 @@ class Clone(object):
         self.eye_dorsal = None
         self.head = None
         self.tail = None
-
+        self.spine = None
 
     def crop(self,img):
 
@@ -371,7 +371,28 @@ class Clone(object):
             y2 = y1 + d_y*1.5
             x2 = x1 + d_x*1.5
 
-      self.eye_dorsal = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+      self.tail = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+
+    def find_spine(self,im):
+
+        if im.shape[2] == 4:
+            im = utils.merge_channels(im,self.animal_channel, self.eye_channel)
+
+        if self.dorsal is None:
+            self.get_anatomical_directions()
+
+        if self.dorsal is not None:
+
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+
+            d_x = x1 - self.dorsal[0]
+            d_y = y1 - self.posterior[1]
+
+            y2 = y1 + d_y*1.5
+            x2 = x1 + d_x*1.5
+
+        self.spine = self.find_zero_crossing(im,(x1,y1),(x2,y2))
 
 
     def calculate_length(self):
