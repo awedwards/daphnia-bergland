@@ -342,47 +342,6 @@ class Clone(object):
         except Exception as e:
             print "Error while calculating area: " + str(e)
 
-    def find_head(self,im):
-        
-        im = self.sanitize(im)
-
-        if self.anterior is None:
-            self.get_anatomical_directions()
-
-        if self.anterior is not None:
-            
-            x1 = self.animal_x_center
-            y1 = self.animal_y_center
-            
-            d_x = x1 - self.anterior[0]
-            d_y = y1 - self.anterior[1]
-
-            y2 = y1 + d_y*1.5
-            x2 = x1 + d_x*1.5
-
-        self.head = self.find_zero_crossing(im,(x1,y1),(x2,y2))
-    
-    def find_tail(self,im):
-        
-        if im.shape[2] == 4:
-            im = self.sanitize(im)
-
-        if self.posterior is None:
-            self.get_anatomical_directions()
-
-        if self.posterior is not None:
-            
-            x1 = self.animal_x_center
-            y1 = self.animal_y_center
-            
-            d_x = x1 - self.posterior[0]
-            d_y = y1 - self.posterior[1]
-
-            y2 = y1 + d_y*1.5
-            x2 = x1 + d_x*1.5
-
-      self.tail = self.find_zero_crossing(im,(x1,y1),(x2,y2))
-
     def find_spine(self,im):
 
         if im.shape[2] == 4:
@@ -601,9 +560,8 @@ class Clone(object):
             self.dorsal_point = self.find_zero_crossing(im, (x1,y1), (x2,y2))   
     
     def slice_pedestal(self,im):
+    
+        # this method calculates pedestal size (the dumb way)
 
-        #input : segmentation image
-        try:
-            
-        except Exception as e:
-            print "Error slicing pedestal: " + str(e)
+        im = sanitize(im)
+
