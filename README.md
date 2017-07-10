@@ -32,7 +32,7 @@ To do most of the analyses, we will need a segmented image of the <i>Daphnia</i>
 
 ![alt text](https://github.com/awedwards/daphnia/blob/master/media/segmentation.png)
 
-We want to fit an ellipse to the animal to find the anatomical directions. The fit_animal_ellipse method does this iteratively, so that we can remove any pixels that have obviously been mis-classified and calculate features like size of the animal:
+We want to fit an ellipse to the animal to find the anatomical directions. The fit_animal_ellipse method does this iteratively, so that we can remove any pixels that have obviously been mis-classified. Then we can calculate features like size of the animal:
 
 ![alt text](https://github.com/awedwards/daphnia/blob/master/media/cleaned_animal_area.png)
 
