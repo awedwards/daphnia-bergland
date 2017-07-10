@@ -450,7 +450,7 @@ class Clone(object):
         im = self.sanitize(im)
 
         thresh = cv2.erode(im, None, iterations=3)
-        thresh = cv2.dilate(thresh, None, iterations=3)
+        thresh = cv2.dilate(thresh, None, iterations=5)
 
         self.find_head(im)
         self.find_tail(im)
