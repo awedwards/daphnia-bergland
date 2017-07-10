@@ -492,8 +492,12 @@ class Clone(object):
     def get_eye_dorsal(self,im):
 
         # finds dorsal point of the eye
-
-        im = self.sanitize(im)
+        
+        try:
+            if im.shape[2] == 4:
+                im = im[:,:,self.eye_channel]
+        except IndexError:
+            pass
 
         if self.dorsal == None: self.get_anatomical_directions()
         
