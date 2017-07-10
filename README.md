@@ -22,3 +22,39 @@ Next, we use a Hough line detector to find the through-line in the scale:
 Finally, we extract the intensity value along the line and perform a Fourier transform to calculate the pixel frequency. This gives us the number of pixels between each scale mark.
 
 ![alt text](https://github.com/awedwards/daphnia/blob/master/media/pixeltomm.png)
+
+
+## Daphnia analysis
+
+Once we have the pixel-to-millimeter conversion factor, the analysis we do for the animal will mean something!
+
+To do most of the analyses, we will need a segmented image of the <i>Daphnia</i>. I used [ilastik](https://github.com/ilastik). The input to most methods will be the segmentation image, which looks something like this (with all channels merged):
+
+![alt text](https://github.com/awedwards/daphnia/blob/master/media/segmentation.png)
+
+We want to fit an ellipse to the animal to find the anatomical directions. The fit_animal_ellipse method does this iteratively, so that we can remove any pixels that have obviously been mis-classified and calculate features like size of the animal:
+
+![alt text](https://github.com/awedwards/daphnia/blob/master/media/cleaned_animal_area.png)
+
+OpenCV provides a way to erode any small blobs in an image. I use this to further clean the segmentation:
+
+![alt text](https://github.com/awedwards/daphnia/blob/master/media/cleaned_animal_threshold.png)
+
+Now we can use the eye as a landmark to find the anatomical axes of the animal
+
+![alt text](https://github.com/awedwards/daphnia/blob/master/media/anatomical.png)
+
+We can use these directions to find landmarks on the actual animal. I am planning on using the dorsal part of the eye (labeled below) to find the tip of the head eventually, but right now I am doing it the dumb way and finding the boundary of the animal in the segmentation image along the anatomical direction.
+
+![alt text](https://github.com/awedwards/daphnia/blob/master/media/landmarks.png)
+
+Length of the animal can be calculated from the head/tail landmarks:
+
+![alt text](https://github.com/awedwards/daphnia/blob/master/media/length.png)
+
+To do (in order of priority):
+- Calculate pedestal size by drawing a line from head point to dorsal point (see two images up), counting pixels, and then normalizing by body size
+- Plotting this stuff! Because there are so many clones/replicates, would love to get some ideas on how to group things. For instance, for length/whole size, I guess we don't care about treatment? So we could group those together if we just want to see a size progression.
+- Work on close-up images to see if we can count neck teeth
+- Think about different ways of quantifying pedestal shape
+- Extracting other features that might be interesting
