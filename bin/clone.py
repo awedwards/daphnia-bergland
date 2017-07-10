@@ -216,8 +216,11 @@ class Clone(object):
         return
 
     def sanitize(self,im):
-        if im.shape[2] == 4:
-            return utils.merge_channels(im, self.animal_channel, self.eye_channel)
+        try:
+            if im.shape[2] == 4:
+                return utils.merge_channels(im, self.animal_channel, self.eye_channel)
+        except IndexError:
+            return im
 
     def calc_pixel_to_mm(self,im):
 
@@ -432,7 +435,7 @@ class Clone(object):
 
         self.fit_ellipse(im,"animal",9.21)
         animal = im.copy()
-        el = matplotlib.patches.Ellipse((int(self.animal_x_center),int(self.animal_y_center)), int(self.animal_major), int(self.animal_minor),int(theta*(180/np.pi)))
+        el = matplotlib.patches.Ellipse((int(self.animal_x_center),int(self.animal_y_center)), int(self.animal_major), int(self.animal_minor),int(self.animal_theta*(180/np.pi)))
         points = list(zip(*(c.flat for c in np.where(animal))))
         
         for i in points:
