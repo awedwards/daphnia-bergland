@@ -66,10 +66,7 @@ class Clone(object):
         self.eye_theta = None
         
         # these are directional vectors of anatomical direction
-<<<<<<< HEAD
-=======
-
->>>>>>> fitellipse
+        
         self.anterior = None
         self.posterior = None
         self.dorsal = None
@@ -80,11 +77,7 @@ class Clone(object):
         self.eye_dorsal = None
         self.head = None
         self.tail = None
-<<<<<<< HEAD
-        self.spine = None
-=======
         self.dorsal_point = None
->>>>>>> fitellipse
 
     def crop(self,img):
         
@@ -349,12 +342,10 @@ class Clone(object):
         except Exception as e:
             print "Error while calculating area: " + str(e)
 
-<<<<<<< HEAD
     def find_head(self,im):
         
-        if im.shape[2] == 4:
-            im = utils.merge_channels(im,self.animal_channel, self.eye_channel)
-        
+        im = self.sanitize(im)
+
         if self.anterior is None:
             self.get_anatomical_directions()
 
@@ -374,8 +365,8 @@ class Clone(object):
     def find_tail(self,im):
         
         if im.shape[2] == 4:
-            im = utils.merge_channels(im,self.animal_channel, self.eye_channel)
-        
+            im = self.sanitize(im)
+
         if self.posterior is None:
             self.get_anatomical_directions()
 
@@ -395,7 +386,7 @@ class Clone(object):
     def find_spine(self,im):
 
         if im.shape[2] == 4:
-            im = utils.merge_channels(im,self.animal_channel, self.eye_channel)
+            im = self.sanitize(im)
 
         if self.dorsal is None:
             self.get_anatomical_directions()
@@ -420,10 +411,7 @@ class Clone(object):
         except Exception as e:
             print e
 
-    def fit_ellipse(self,im,objectType):
-=======
     def fit_ellipse(self,im,objectType, chi_2):
->>>>>>> fitellipse
         
         # fit an ellipse to the animal pixels
 
