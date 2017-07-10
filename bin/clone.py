@@ -345,27 +345,6 @@ class Clone(object):
         except Exception as e:
             print "Error while calculating area: " + str(e)
 
-    def find_spine(self,im):
-
-        if im.shape[2] == 4:
-            im = self.sanitize(im)
-
-        if self.dorsal is None:
-            self.get_anatomical_directions()
-
-        if self.dorsal is not None:
-
-            x1 = self.animal_x_center
-            y1 = self.animal_y_center
-
-            d_x = x1 - self.dorsal[0]
-            d_y = y1 - self.posterior[1]
-
-            y2 = y1 + d_y*1.5
-            x2 = x1 + d_x*1.5
-
-        self.spine = self.find_zero_crossing(im,(x1,y1),(x2,y2))
-
     def calculate_length(self):
 
         try:
@@ -416,6 +395,7 @@ class Clone(object):
 
             v = v[maj]
             theta = -np.arctan(v[minor]/v[maj])
+            if theta < 0: theta = np.pi/2 - theta
 
             setattr(self, objectType + "_x_center", x_center)
             setattr(self, objectType + "_y_center", y_center)
@@ -454,7 +434,7 @@ class Clone(object):
 
         self.find_head(im)
         self.find_tail(im)
-        self.dorsal_point(im)
+        self.find_dorsal_point(im)
 
     def get_anatomical_directions(self):
         
@@ -486,8 +466,8 @@ class Clone(object):
             self.ventral = minor_vertex_1
             self.dorsal = minor_vertex_2
         elif self.dist((e_x, e_y), minor_vertex_2) < self.dist((e_x, e_y), minor_vertex_1):
-            self.ventral = minor_vortex_2
-            self.dorsal = minor_vortex_1
+            self.ventral = minor_vertex_2
+            self.dorsal = minor_vertex_1
 
     def get_eye_dorsal(self,im):
 
