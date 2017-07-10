@@ -1,6 +1,7 @@
 from __future__ import division
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import os
 import cv2
@@ -65,6 +66,10 @@ class Clone(object):
         self.eye_theta = None
         
         # these are directional vectors of anatomical direction
+<<<<<<< HEAD
+=======
+
+>>>>>>> fitellipse
         self.anterior = None
         self.posterior = None
         self.dorsal = None
@@ -75,9 +80,15 @@ class Clone(object):
         self.eye_dorsal = None
         self.head = None
         self.tail = None
+<<<<<<< HEAD
         self.spine = None
+=======
+        self.dorsal_point = None
+>>>>>>> fitellipse
 
     def crop(self,img):
+        
+        # this method is for cropping out the scale from micrometer images
 
         # aperture edges mess up image normalization, so we need to figure out which
         # (if any) corners have aperture edges, as well as how far each of the edges
@@ -211,6 +222,9 @@ class Clone(object):
                 return (x[i],y[i]) 
         return
 
+    def sanitize(self,im):
+        if im.shape[2] == 4:
+            return utils.merge_channels(im, self.animal_channel, self.eye_channel)
 
     def calc_pixel_to_mm(self,im):
 
@@ -295,6 +309,7 @@ class Clone(object):
         return np.mean(measurements)
 
     def split_channels(self,im):
+        
         # splits ilastik segmentation output into 4 channels
         # 1 - background
         # 2 - animal
@@ -319,18 +334,22 @@ class Clone(object):
         return np.stack(arrays,axis=2)
 
     def calculate_area(self,im):
+        
         # input:  segmentation image
         # merge animal and eye channels 
+        
         try:
-            if im.shape[2] == 4:
-                animal = utils.merge_channels(im,self.animal_channel,self.eye_channel)
-                # count total number of pixels and divide by conversion factor
-                self.total_animal_pixels = len(np.flatnonzero(animal))
-                self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
+            
+            animal = self.sanitize(im)
+
+            # count total number of pixels and divide by conversion factor
+            self.total_animal_pixels = len(np.flatnonzero(animal))
+            self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
         
         except Exception as e:
             print "Error while calculating area: " + str(e)
 
+<<<<<<< HEAD
     def find_head(self,im):
         
         if im.shape[2] == 4:
@@ -402,14 +421,19 @@ class Clone(object):
             print e
 
     def fit_ellipse(self,im,objectType):
+=======
+    def fit_ellipse(self,im,objectType, chi_2):
+>>>>>>> fitellipse
         
+        # fit an ellipse to the animal pixels
+
         try:
             # input: segmentation image
             # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
 
             # merge animal and eye channels
             if objectType == "animal":
-                ob = utils.merge_channels(im,self.animal_channel, self.eye_channel)
+                ob = self.sanitize(im)
             elif objectType == "eye":
                 ob = im[:,:,self.eye_channel]
             else:
@@ -437,12 +461,11 @@ class Clone(object):
             maj = np.argmax(w)
             minor = np.argmin(w)
             
-            major_l = 2*np.sqrt(4.6*w[maj])
-            minor_l = 2*np.sqrt(4.6*w[minor])
+            major_l = 2*np.sqrt(chi_2*w[maj])
+            minor_l = 2*np.sqrt(chi_2*w[minor])
 
             v = v[maj]
             theta = -np.arctan(v[minor]/v[maj])
-            theta_p = np.int(theta/(np.pi/180))
 
             setattr(self, objectType + "_x_center", x_center)
             setattr(self, objectType + "_y_center", y_center)
@@ -453,7 +476,36 @@ class Clone(object):
         except Exception as e:
             print "Error fitting ellipse: " + str(e)
             return
-    
+
+    def fit_animal_ellipse(self,im):
+
+        # this method cleans up any obviously misclassified pixels and re-calculates ellipse
+
+        im = self.sanitize(im)
+
+        self.fit_ellipse(im,"animal",9.21)
+        animal = im.copy()
+        el = matplotlib.patches.Ellipse((int(self.animal_x_center),int(self.animal_y_center)), int(self.animal_major), int(self.animal_minor),int(theta*(180/np.pi)))
+        points = list(zip(*(c.flat for c in np.where(animal))))
+        
+        for i in points:
+            if not el.contains_point(i): animal[i] = 0                                               
+        
+        self.fit_ellipse(animal,"animal",4.6)
+
+    def find_body_landmarks(self,im):
+
+        # this method smooths animal pixels and finds landmarks
+
+        im = self.sanitize(im)
+
+        thresh = cv2.erode(im, None, iterations=3)
+        thresh = cv2.dilate(thresh, None, iterations=3)
+
+        self.find_head(im)
+        self.find_tail(im)
+        self.dorsal_point(im)
+
     def get_anatomical_directions(self):
         
         # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
@@ -491,8 +543,7 @@ class Clone(object):
 
         # finds dorsal point of the eye
 
-        if im.shape[2] == 4:
-            im = im[:,:,self.eye_channel]
+        im = self.sanitize(im)
 
         if self.dorsal == None: self.get_anatomical_directions()
         
@@ -509,7 +560,58 @@ class Clone(object):
             x2 = self.eye_x_center + d_x
             
             self.eye_dorsal = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+    
+    def find_head(self, im):
 
+        im = self.sanitize(im)
+
+        if self.anterior is None:
+            self.get_anatomical_directions()
+
+        if self.anterior is not None:
+
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+
+            x2 = 1.5*self.anterior[0] - 0.5*x1
+            y2 = 1.5*self.anterior[1] - 0.5*y1
+
+            self.head = self.find_zero_crossing(im, (x1,y1), (x2,y2))
+
+    def find_tail(self, im):
+        
+        im = self.sanitize(im)
+
+        if self.posterior is None:
+            self.get_anatomical_directions()
+
+        if self.posterior is not None:
+
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+
+            x2 = 1.5*self.posterior[0] - 0.5*x1
+            y2 = 1.5*self.posterior[1] - 0.5*y1
+
+            self.tail = self.find_zero_crossing(im, (x1,y1), (x2,y2))
+ 
+    def find_dorsal_point(self, im):
+        
+        im = self.sanitize(im)
+
+        if self.dorsal is None:
+            self.get_anatomical_directions()
+
+        if self.dorsal is not None:
+
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+
+            x2 = 1.5*self.dorsal[0] - 0.5*x1
+            y2 = 1.5*self.dorsal[1] - 0.5*y1
+
+            self.dorsal_point = self.find_zero_crossing(im, (x1,y1), (x2,y2))   
+    
     def slice_pedestal(self,im):
 
         #input : segmentation image
