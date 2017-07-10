@@ -65,15 +65,23 @@ class Clone(object):
         self.eye_minor = None
         self.eye_theta = None
         
+        # these are directional vectors of anatomical direction
+
         self.anterior = None
         self.posterior = None
         self.dorsal = None
         self.ventral = None
 
-        self.eye_dorsal = None
+        # these are actual points on the animal
 
+        self.eye_dorsal = None
+        self.head = None
+        self.tail = None
+        self.dorsal_point = None
 
     def crop(self,img):
+        
+        # this method is for cropping out the scale from micrometer images
 
         # aperture edges mess up image normalization, so we need to figure out which
         # (if any) corners have aperture edges, as well as how far each of the edges
@@ -450,7 +458,61 @@ class Clone(object):
             x2 = self.eye_x_center + d_x
             
             self.eye_dorsal = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+    
+    def find_head(self, im):
 
+        if im.shape[2] == 4:
+            im = merge_channels(im, self.animal_channel, self.eye_channel)
+
+        if self.anterior is None:
+            self.get_anatomical_directions()
+
+        if self.anterior is not None:
+
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+
+            x2 = 1.5*self.anterior[0] - 0.5*x1
+            y2 = 1.5*self.anterior[1] - 0.5*y1
+
+            self.head = self.find_zero_crossing(im, (x1,y1), (x2,y2))
+
+    def find_tail(self, im):
+        
+        if im.shape[2] == 4:
+            im = merge_channels(im, self.animal_channel, self.eye_channel)
+
+        if self.posterior is None:
+            self.get_anatomical_directions()
+
+        if self.posterior is not None:
+
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+
+            x2 = 1.5*self.posterior[0] - 0.5*x1
+            y2 = 1.5*self.posterior[1] - 0.5*y1
+
+            self.tail = self.find_zero_crossing(im, (x1,y1), (x2,y2))
+ 
+    def find_dorsal_point(self, im):
+        
+        if im.shape[2] == 4:
+            im = merge_channels(im, self.animal_channel, self.eye_channel)
+
+        if self.dorsal is None:
+            self.get_anatomical_directions()
+
+        if self.dorsal is not None:
+
+            x1 = self.animal_x_center
+            y1 = self.animal_y_center
+
+            x2 = 1.5*self.dorsal[0] - 0.5*x1
+            y2 = 1.5*self.dorsal[1] - 0.5*y1
+
+            self.dorsal_point = self.find_zero_crossing(im, (x1,y1), (x2,y2))   
+    
     def slice_pedestal(self,im):
 
         #input : segmentation image
