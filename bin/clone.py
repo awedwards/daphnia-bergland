@@ -215,6 +215,9 @@ class Clone(object):
                 return (x[i],y[i]) 
         return
 
+    def sanitize(self,im):
+        if im.shape[2] == 4:
+            return utils.merge_channels(im, self.animal_channel, self.eye_channel)
 
     def calc_pixel_to_mm(self,im):
 
@@ -299,6 +302,7 @@ class Clone(object):
         return np.mean(measurements)
 
     def split_channels(self,im):
+        
         # splits ilastik segmentation output into 4 channels
         # 1 - background
         # 2 - animal
@@ -323,27 +327,32 @@ class Clone(object):
         return np.stack(arrays,axis=2)
 
     def calculate_area(self,im):
+        
         # input:  segmentation image
         # merge animal and eye channels 
+        
         try:
-            if im.shape[2] == 4:
-                animal = utils.merge_channels(im,self.animal_channel,self.eye_channel)
-                # count total number of pixels and divide by conversion factor
-                self.total_animal_pixels = len(np.flatnonzero(animal))
-                self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
+            
+            animal = self.sanitize(im)
+
+            # count total number of pixels and divide by conversion factor
+            self.total_animal_pixels = len(np.flatnonzero(animal))
+            self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
         
         except Exception as e:
             print "Error while calculating area: " + str(e)
 
     def fit_ellipse(self,im,objectType, chi_2):
         
+        # fit an ellipse to the animal pixels
+
         try:
             # input: segmentation image
             # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
 
             # merge animal and eye channels
             if objectType == "animal":
-                ob = utils.merge_channels(im,self.animal_channel, self.eye_channel)
+                ob = self.sanitize(im)
             elif objectType == "eye":
                 ob = im[:,:,self.eye_channel]
             else:
@@ -391,7 +400,7 @@ class Clone(object):
 
         # this method cleans up any obviously misclassified pixels and re-calculates ellipse
 
-        if im.shape[2] == 4: utils.merge_channels(im,self.animal_channel, self.eye_channel)
+        im = self.sanitize(im)
 
         self.fit_ellipse(im,"animal",9.21)
         animal = im.copy()
@@ -402,6 +411,16 @@ class Clone(object):
             if not el.contains_point(i): animal[i] = 0                                               
         
         self.fit_ellipse(animal,"animal",4.6)
+
+    def find_body_landmarks(self,im):
+
+        # this method smooths animal pixels and finds landmarks
+
+        im = self.sanitize(im)
+
+        self.find_head(im)
+        self.find_tail(im)
+        self.dorsal_point(im)
 
     def get_anatomical_directions(self):
         
@@ -440,8 +459,7 @@ class Clone(object):
 
         # finds dorsal point of the eye
 
-        if im.shape[2] == 4:
-            im = im[:,:,self.eye_channel]
+        im = self.sanitize(im)
 
         if self.dorsal == None: self.get_anatomical_directions()
         
@@ -461,8 +479,7 @@ class Clone(object):
     
     def find_head(self, im):
 
-        if im.shape[2] == 4:
-            im = merge_channels(im, self.animal_channel, self.eye_channel)
+        im = self.sanitize(im)
 
         if self.anterior is None:
             self.get_anatomical_directions()
@@ -479,8 +496,7 @@ class Clone(object):
 
     def find_tail(self, im):
         
-        if im.shape[2] == 4:
-            im = merge_channels(im, self.animal_channel, self.eye_channel)
+        im = self.sanitize(im)
 
         if self.posterior is None:
             self.get_anatomical_directions()
@@ -497,8 +513,7 @@ class Clone(object):
  
     def find_dorsal_point(self, im):
         
-        if im.shape[2] == 4:
-            im = merge_channels(im, self.animal_channel, self.eye_channel)
+        im = self.sanitize(im)
 
         if self.dorsal is None:
             self.get_anatomical_directions()
