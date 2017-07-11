@@ -47,7 +47,9 @@ class Clone(object):
 
         self.total_animal_pixels = None
         self.animal_area = None
-        
+        self.pedestal_size = None
+        self.pedestal_score = None
+
         try:
             self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
         except Exception as e:
@@ -547,17 +549,57 @@ class Clone(object):
             #y1 = self.animal_y_center
             x_h, y_h = self.head
             x_t, y_t = self.tail
-            x1 = np.min(x_h,x_t) + np.abs(0.5*(x_h - x_t))
-            y1 = np.min(y_h,y_t) + np.abs(0.5*(y_h - y_t))
+            x1 = min(x_h,x_t) + np.abs(0.5*(x_h - x_t))
+            y1 = min(y_h,y_t) + np.abs(0.5*(y_h - y_t))
 
             x2 = 1.5*self.dorsal[0] - 0.5*x1
             y2 = 1.5*self.dorsal[1] - 0.5*y1
 
-            self.dorsal_point = self.find_zero_crossing(im, (x1,y1), (x2,y2))   
-    
+            self.dorsal_point = self.find_zero_crossing(im, (x1,y1), (x2,y2))
+
+    def intersect(self, (ax1,ay1,ax2,ay2), (bx1,by1,bx2,by2)):
+        
+        a_m = ((ay2-ay1)/(ax2-ax1))
+        b_m = ((by2-by1)/(bx2-bx1))
+         
+        if a_m == b_m:
+            return False
+        else:
+            a_b = ay1 - a_m*ax1
+            b_b = by1 - b_m*bx1
+             
+            x_int = (b_b - a_b)/(a_m - b_m)
+            y_int = a_m*x_int + a_b
+
+            if (x_int <= max(ax1, ax2) and x_int >= min(ax1, ax2)
+                     and x_int <= max(bx1, bx2) and x_int >= min(bx1, bx2)
+                     and y_int <= max(ay1, ay2) and y_int >= min(ay1, ay2)
+                     and y_int <= max(by1, by2) and y_int >= min(by1, by2)):
+                return True
+            else: return False
+     
     def slice_pedestal(self,im):
     
         # this method calculates pedestal size (the dumb way)
 
-        im = sanitize(im)
+        im = self.sanitize(im)
+        
+        count = 0
+        points = np.where(im)
+        for i in xrange(len(points[0])):
 
+            if self.intersect( (self.animal_x_center, self.animal_y_center, points[0][i],points[1][i]),
+                    (self.head[0],self.head[1], self.dorsal_point[0],self.dorsal_point[1])):
+                count += 1
+        self.pedestal_size = count/(self.pixel_to_mm**2)
+
+    def calculate_pedestal_score(self,im):
+        
+        im = self.sanitize(im)
+
+        if self.animal_area is None:
+            self.calculate_area(im)
+        if self.pedestal_size is None:
+            self.slice_pedestal(im)
+
+        self.pedestal_score = self.pedestal_size/self.animal_area
