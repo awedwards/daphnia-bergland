@@ -210,8 +210,13 @@ class Clone(object):
         x,y = np.linspace(x1,x2,npoints),np.linspace(y1,y2,npoints)
         zi = scipy.ndimage.map_coordinates(im,np.vstack((x,y)),mode='nearest')
 
-        for i,val in enumerate(zi):
-            if val <= 0:
+        # this should make the boundary finding more robust to small pockets of mis-classified pixels
+        df = pd.DataFrame(zi)
+        mva = pd.rolling_mean(zi,8)
+        mva = mva[~np.isnan(mva)]
+
+        for i,val in enumerate(mva):
+            if val <= 0.05:
                 return (x[i],y[i]) 
         return
 
@@ -538,8 +543,12 @@ class Clone(object):
 
         if self.dorsal is not None:
 
-            x1 = self.animal_x_center
-            y1 = self.animal_y_center
+            #x1 = self.animal_x_center
+            #y1 = self.animal_y_center
+            x_h, y_h = self.head
+            x_t, y_t = self.tail
+            x1 = np.min(x_h,x_t) + np.abs(0.5*(x_h - x_t))
+            y1 = np.min(y_h,y_t) + np.abs(0.5*(y_h - y_t))
 
             x2 = 1.5*self.dorsal[0] - 0.5*x1
             y2 = 1.5*self.dorsal[1] - 0.5*y1
