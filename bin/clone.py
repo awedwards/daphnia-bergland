@@ -25,6 +25,7 @@ class Clone(object):
         ext = ".bmp"
 
         self.filebase = delim.join((cloneid,treatment,replicate,rig,datetime)) + ext
+
         if os.path.isfile(os.path.join(datadir, "full_" + self.filebase)):
             self.full_filepath = os.path.join(datadir, "full_" + self.filebase)
         
@@ -400,9 +401,9 @@ class Clone(object):
             major_l = 2*np.sqrt(chi_2*w[maj])
             minor_l = 2*np.sqrt(chi_2*w[minor])
 
-            v = v[maj]
-            theta = -np.arctan(v[minor]/v[maj])
-            if theta < 0: theta = np.pi/2 - theta
+            # calculate angle of largest eigenvector towards the x-axis to get theta relative to x-axis
+            v = v[minor]
+            theta = np.arctan(v[1]/v[0])
 
             setattr(self, objectType + "_x_center", x_center)
             setattr(self, objectType + "_y_center", y_center)
@@ -431,9 +432,11 @@ class Clone(object):
         self.fit_ellipse(animal,"animal",4.6)
 
     def find_body_landmarks(self,im):
+        
+        # before merging channels, find eye landmarks:
+        self.get_eye_dorsal(im)
 
         # this method smooths animal pixels and finds landmarks
-
         im = self.sanitize(im)
 
         thresh = cv2.erode(im, None, iterations=3)
@@ -442,7 +445,7 @@ class Clone(object):
         self.find_head(im)
         self.find_tail(im)
         self.find_dorsal_point(im)
-
+        
     def get_anatomical_directions(self):
         
         # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
