@@ -1,3 +1,4 @@
+from __future__ import division
 from clone import Clone
 import utils
 import plot
@@ -28,7 +29,9 @@ except IOError:
     
     for f in files:
       skip = False
-      if f.endswith(".bmp"):
+      if f.startswith("._"):
+          continue
+      elif f.endswith(".bmp"):
           delim = "_"
           fileparts = f.split(delim)
           
@@ -47,7 +50,8 @@ except IOError:
           rig = fileparts[4]
           datetime = fileparts[5][:-4]
           filebase = delim.join((clone_id,treatment,replicate,rig,datetime))
-      
+          if filebase.startswith("clone") or filebase.startswith("full"):
+              print fileparts
           for val, i in enumerate(clone_dict[clone_id]):
               if i.filebase == filebase:
                   skip = True
@@ -62,39 +66,39 @@ except IOError:
     utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
 
 analysis = True
+
+total = 0
+for keys in clone_dict.keys():
+    total += len(clone_dict[keys])
+
+so_far = 0
 with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
     if analysis:
         for keys in clone_dict.keys():
+            so_far += len(clone_dict[keys])
             for clone in clone_dict[keys]:
-                print "Analyzing " + clone.filebase
+                print "Analyzing " + str(clone.filebase)
                 try:
                     split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
                     if doAreaCalc:
-                        print "Calculating area for " + clone.filebase + "\n"
                         clone.calculate_area(split)
                     
                     if doAnimalEllipseFit:
-                        print "Fitting ellipse for " + clone.filebase + "\n"
                         clone.fit_animal_ellipse(split)
                         
                     if doEyeEllipseFit:
-                        print "Fitting ellipse for eye of " + clone.filebase + "\n"
                         clone.fit_ellipse(split, "eye", 4.6)
 
                     if doBodyLandmarks:
-                        print "Finding body landparks for " + clone.filebase + "\n"
                         clone.find_body_landmarks(split)
 
                     if doLength:
-                        print "Calculating length for " + clone.filebase + "\n"
                         clone.calculate_length()
 
                     if doPedestalScore:
-                        print "Calculating pedestal score for " + clone.filebase + "\n"
                         clone.calculate_pedestal_score(split)
-
                 except AttributeError as e:
-                    f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")
-                    
-
-        utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
+                    f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")        
+            print "Analyzed " + str(so_far) + " out of " + str(total) + "(" + str((so_far/total)*100) + "%)"
+            print "Saving pickle"
+            utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")

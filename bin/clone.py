@@ -479,7 +479,7 @@ class Clone(object):
             self.ventral = minor_vertex_2
             self.dorsal = minor_vertex_1
 
-    def get_eye_dorsal(self,im):
+    def find_eye_dorsal(self,im):
 
         # finds dorsal point of the eye
         
@@ -509,16 +509,23 @@ class Clone(object):
 
         im = self.sanitize(im)
 
-        if self.anterior is None:
-            self.get_anatomical_directions()
+        if self.tail is None:
+            self.find_tail(im)
+        
+        if self.eye_dorsal is None:
+            self.find_eye_dorsal(im)
+        
 
-        if self.anterior is not None:
+        if (self.tail is not None) and (self.eye_dorsal is not None):
 
-            x1 = self.animal_x_center
-            y1 = self.animal_y_center
-
-            x2 = 1.5*self.anterior[0] - 0.5*x1
-            y2 = 1.5*self.anterior[1] - 0.5*y1
+            # want to go through back of eye
+            x1 = self.eye_dorsal[0]
+            y1 = self.eye_dorsal[1]
+           
+            # should just need to go a bit beyond eye_dorsal point,
+            # but we'll go even further just to make sure
+            y2 = 1.5*(y1 - self.tail[1])
+            x2 = 1.5*(x1 - self.tail[0])
 
             self.head = self.find_zero_crossing(im, (x1,y1), (x2,y2))
 
