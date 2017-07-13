@@ -586,23 +586,27 @@ class Clone(object):
         # this method calculates pedestal size (the dumb way)
 
         im = self.sanitize(im)
-        
-        count = 0
-        points = np.where(im)
-        for i in xrange(len(points[0])):
+        try:
+            count = 0
+            points = np.where(im)
+            for i in xrange(len(points[0])):
 
-            if self.intersect( (self.animal_x_center, self.animal_y_center, points[0][i],points[1][i]),
-                    (self.head[0],self.head[1], self.dorsal_point[0],self.dorsal_point[1])):
-                count += 1
-        self.pedestal_size = count/(self.pixel_to_mm**2)
-
+                if self.intersect( (self.animal_x_center, self.animal_y_center, points[0][i],points[1][i]),
+                        (self.head[0],self.head[1], self.dorsal_point[0],self.dorsal_point[1])):
+                    count += 1
+            self.pedestal_size = count/(self.pixel_to_mm**2)
+        except Exception as e:
+            print "Could not calculate pedestal size because: " + str(e)
     def calculate_pedestal_score(self,im):
         
         im = self.sanitize(im)
 
-        if self.animal_area is None:
-            self.calculate_area(im)
-        if self.pedestal_size is None:
-            self.slice_pedestal(im)
+        try:
+            if self.animal_area is None:
+                self.calculate_area(im)
+            if self.pedestal_size is None:
+                self.slice_pedestal(im)
 
-        self.pedestal_score = self.pedestal_size/self.animal_area
+            self.pedestal_score = self.pedestal_size/self.animal_area
+        except TypeError:
+            print "Pedestal_size or animal_area not calculated"
