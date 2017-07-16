@@ -9,6 +9,7 @@ import scipy
 import scipy.ndimage
 import scipy.stats
 import pickle
+import re
 import utils
 
 class Clone(object):
@@ -16,6 +17,9 @@ class Clone(object):
     def __init__(self,cloneid,treatment,replicate,rig,datetime,datadir,segdatadir):
         
         self.cloneid = cloneid
+        self.pond = None
+        self.id = None
+        self.pond, self.id = utils.parse(self.cloneid)
         self.treatment = treatment
         self.replicate = replicate
         self.rig = rig
@@ -434,7 +438,7 @@ class Clone(object):
     def find_body_landmarks(self,im):
         
         # before merging channels, find eye landmarks:
-        self.get_eye_dorsal(im)
+        self.find_eye_dorsal(im)
 
         # this method smooths animal pixels and finds landmarks
         im = self.sanitize(im)
@@ -515,7 +519,6 @@ class Clone(object):
         if self.eye_dorsal is None:
             self.find_eye_dorsal(im)
         
-
         if (self.tail is not None) and (self.eye_dorsal is not None):
 
             # want to go through back of eye
@@ -524,8 +527,8 @@ class Clone(object):
            
             # should just need to go a bit beyond eye_dorsal point,
             # but we'll go even further just to make sure
-            y2 = 1.5*(y1 - self.tail[1])
-            x2 = 1.5*(x1 - self.tail[0])
+            x2 = 1.5*x1 - 0.5*self.tail[0]
+            y2 = 1.5*y1 - 0.5*self.tail[1]
 
             self.head = self.find_zero_crossing(im, (x1,y1), (x2,y2))
 
@@ -553,7 +556,13 @@ class Clone(object):
         if self.dorsal is None:
             self.get_anatomical_directions()
 
-        if self.dorsal is not None:
+        if self.head is None:
+            self.find_head(im)
+
+        if self.tail is None:
+            self.find_tail(im)
+
+        if (self.dorsal is not None) and (self.tail is not None) and (self.head is not None):
 
             #x1 = self.animal_x_center
             #y1 = self.animal_y_center
