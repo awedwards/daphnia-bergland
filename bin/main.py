@@ -10,6 +10,7 @@ import cv2
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/full_segmentation_output_20170711"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
+ext = '.bmp'
 
 doAreaCalc = True
 doAnimalEllipseFit = True
@@ -31,7 +32,7 @@ except IOError:
       skip = False
       if f.startswith("._"):
           continue
-      elif f.endswith(".bmp"):
+      elif f.endswith(ext):
           delim = "_"
           fileparts = f.split(delim)
           
@@ -49,7 +50,9 @@ except IOError:
           replicate = fileparts[3]
           rig = fileparts[4]
           datetime = fileparts[5][:-4]
-          filebase = delim.join((clone_id,treatment,replicate,rig,datetime))
+
+          filebase = delim.join((clone_id,treatment,replicate,rig,datetime)) + ext 
+          
           if filebase.startswith("clone") or filebase.startswith("full"):
               print fileparts
           for val, i in enumerate(clone_dict[clone_id]):
@@ -96,9 +99,28 @@ with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
                         clone.calculate_length()
 
                     if doPedestalScore:
-                        clone.calculate_pedestal_score(split)
+                        im = cv2.imread(clone.full_filepath)
+                        clone.get_pedestal_height(im,split)
+                        clone.calculate_pedestal_score()
+                        print clone.pedestal_score_height
                 except AttributeError as e:
+                    print str(e)
                     f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")        
             print "Analyzed " + str(so_far) + " out of " + str(total) + "(" + str((so_far/total)*100) + "%)"
             print "Saving pickle"
             utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
+
+parseNames = False
+
+if parseNames:
+    for keys in clone_dict.keys():
+        for clone in clone_dict[keys]:
+            try:
+                pond, cloneid = utils.parse(clone.cloneid)
+                clone.pond = pond
+                clone.id = cloneid
+            except Exception as e:
+                print clone.filebase
+                print e
+
+    utils.save_pkl(clone_dict, ANALYSISDIR,"clonedata")

@@ -8,6 +8,8 @@ import cv2
 import scipy
 import scipy.ndimage
 import scipy.stats
+from skimage.filters import gaussian
+from skimage.segmentation import active_contour
 import pickle
 import re
 import utils
@@ -53,7 +55,9 @@ class Clone(object):
         self.total_animal_pixels = None
         self.animal_area = None
         self.pedestal_size = None
-        self.pedestal_score = None
+        self.pedestal_height = None
+        self.pedestal_score_height = None
+        self.pedestal_score_area = None
 
         try:
             self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
@@ -564,13 +568,11 @@ class Clone(object):
 
         if (self.dorsal is not None) and (self.tail is not None) and (self.head is not None):
 
-            #x1 = self.animal_x_center
-            #y1 = self.animal_y_center
             x_h, y_h = self.head
             x_t, y_t = self.tail
-            x1 = min(x_h,x_t) + np.abs(0.5*(x_h - x_t))
-            y1 = min(y_h,y_t) + np.abs(0.5*(y_h - y_t))
 
+            x1 = 0.5*(x_h + x_t)
+            x2 = 0.5*(y_h + y_t)
             x2 = 1.5*self.dorsal[0] - 0.5*x1
             y2 = 1.5*self.dorsal[1] - 0.5*y1
 
@@ -596,9 +598,55 @@ class Clone(object):
                      and y_int <= max(by1, by2) and y_int >= min(by1, by2)):
                 return True
             else: return False
-     
-    def slice_pedestal(self,im):
     
+    def get_pedestal_height(self,im,segim):
+
+        if segim.shape[2] == 4:
+            segim = segim[:,:,self.background_channel]
+
+        gimg = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+        gimg[np.where(segim)] = 255
+
+        hy = self.head[1]
+        hx = self.head[0]
+        dpy = self.dorsal_point[1]
+        dpx = self.dorsal_point[0]
+      
+        mid_x = 0.5*(hx + dpx)
+        mid_y = 0.5*(hy + dpy)
+        
+        d = self.dist((hx,hy),(dpx,dpy))
+
+        # we'll initialize the active countour snake as a semi-circle
+        # centered at the midpoint between head/dorsal point
+
+        pedestal_x_sign = np.sign(mid_x-self.animal_x_center)
+
+        theta1 = np.arctan((dpx - mid_x)/(dpy - mid_y))
+        theta2 = theta1 + pedestal_x_sign*np.pi
+
+        s = np.linspace(theta1,theta2, 400)
+        y = mid_y + 0.5*d*np.cos(s)
+        x = mid_x + 0.5*d*np.sin(s)
+
+        # active countour flips x/y, so we structure the initial snake like so:
+        init = np.array([y, x]).T
+        snake = active_contour(gaussian(gimg, 1), init, bc='fixed',
+                                           alpha=1, beta=1, w_line=-5, w_edge=10, gamma=0.1)
+
+        line_x = np.linspace(int(self.dorsal_point[1]),int(self.head[1]),400)
+        line_y = np.linspace(int(self.dorsal_point[0]),int(self.head[0]),400)
+        line = zip(line_x,line_y)
+
+        distances = np.zeros(400)
+        
+        for i in xrange(400):
+            distances[i] = self.dist(line[i],snake[i])
+        
+        self.pedestal_height = np.max(distances)/self.pixel_to_mm
+
+    def slice_pedestal(self,im):
+   
         # this method calculates pedestal size (the dumb way)
 
         im = self.sanitize(im)
@@ -613,16 +661,11 @@ class Clone(object):
             self.pedestal_size = count/(self.pixel_to_mm**2)
         except Exception as e:
             print "Could not calculate pedestal size because: " + str(e)
-    def calculate_pedestal_score(self,im):
+
+    def calculate_pedestal_score(self):
         
-        im = self.sanitize(im)
-
         try:
-            if self.animal_area is None:
-                self.calculate_area(im)
-            if self.pedestal_size is None:
-                self.slice_pedestal(im)
-
-            self.pedestal_score = self.pedestal_size/self.animal_area
+            self.pedestal_score_area = self.pedestal_height/self.animal_area
+            self.pedestal_score_length = self.pedestal_height/self.animal_length
         except TypeError:
             print "Pedestal_size or animal_area not calculated"
