@@ -44,7 +44,7 @@ Now we can use the eye as a landmark to find the anatomical axes of the animal
 
 ![alt text](https://github.com/awedwards/daphnia/blob/master/media/anatomical.png)
 
-We can use these directions to find landmarks on the actual animal. I am planning on using the dorsal part of the eye (labeled below) to find the tip of the head eventually, but right now I am doing it the dumb way and finding the boundary of the animal in the segmentation image along the anatomical direction.
+We can use these directions to find landmarks on the actual animal. First, the "tail" of the animal is found by traversing along the posterior of the animal until a body boundary is found (this could be updated to include information from the actual tail, which I have labeled as "antennae" in the segmentation step). Next, the head of the animal is found by drawing a line between the tail and the dorsal point of the eye, and continuing until a body boundary is found.
 
 ![alt text](https://github.com/awedwards/daphnia/blob/master/media/landmarks.png)
 
