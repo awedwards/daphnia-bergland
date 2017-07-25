@@ -1,7 +1,7 @@
 # daphnia
 Daphnia image analysis
 
-Automated image analysis for extracting features from whole images of <i>Daphnia magna</i>.
+Automated image analysis for extracting features from whole images of <i>Daphnia pulex</i>.
 
 Here is a description of some of the main features of <b>daphnia</b>:
 
