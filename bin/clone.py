@@ -16,12 +16,13 @@ import utils
 
 class Clone(object):
     
-    def __init__(self,cloneid,treatment,replicate,rig,datetime,datadir,segdatadir):
+    def __init__(self,barcode,cloneid,treatment,replicate,rig,datetime,datadir,segdatadir):
         
         self.cloneid = cloneid
         self.pond = None
         self.id = None
-        self.pond, self.id = utils.parse(self.cloneid)
+        self.pond, self.id = utils.parsePond(self.cloneid)
+        self.barcode = barcode
         self.treatment = treatment
         self.replicate = replicate
         self.rig = rig
@@ -30,7 +31,7 @@ class Clone(object):
         delim = "_"
         ext = ".bmp"
 
-        self.filebase = delim.join((cloneid,treatment,replicate,rig,datetime)) + ext
+        self.filebase = delim.join((barcode,cloneid,treatment,replicate,rig,datetime)) + ext
 
         if os.path.isfile(os.path.join(datadir, "full_" + self.filebase)):
             self.full_filepath = os.path.join(datadir, "full_" + self.filebase)
@@ -54,13 +55,16 @@ class Clone(object):
 
         self.total_animal_pixels = None
         self.animal_area = None
+        self.animal_length = None
         self.pedestal_size = None
         self.pedestal_height = None
         self.pedestal_score_height = None
         self.pedestal_score_area = None
+        self.snake = None
 
         try:
             self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
+            print self.pixel_to_mm
         except Exception as e:
             print "Could not calculate pixel image because of the following error: " + str(e)
 
@@ -143,7 +147,7 @@ class Clone(object):
             except ValueError:
                 rightbound = h-1
             
-            if (leftbound > int(h*0.40) or rightbound < int(h*0.6)) or (leftbound == int(h/2)-1 and  rightbound == int(h/2)):
+            if (leftbound > int(h*0.25) or rightbound < int(h*0.75)) or (leftbound == int(h/2)-1 and  rightbound == int(h/2)):
 
                 #if the left and right corners can't be cropped column-wise (e.g. there's a solid border along the bottom)
 
@@ -233,7 +237,7 @@ class Clone(object):
 
     def sanitize(self,im):
         try:
-            if im.shape[2] == 4:
+            if im.shape[2] == 3 or im.shape[2] == 4:
                 return utils.merge_channels(im, self.animal_channel, self.eye_channel)
         except IndexError:
             return im
@@ -252,15 +256,18 @@ class Clone(object):
 
         w,h = highcontrast.shape
         
-        edge_threshold = 175
+        edge_threshold = 225
+        sum_edges = w*h
         lines = None
 
         while edge_threshold > 0 and not np.any(lines):
+
             edges = cv2.Canny(highcontrast,0,edge_threshold,apertureSize = 3)
+            sum_edges = np.sum(edges)
             edge_threshold -= 25
             min_line_length = 200
 
-            while min_line_length > 0 and not np.any(lines):
+            while (min_line_length > 0) and not np.any(lines) and ((sum_edges/(255*w*h))):
                 lines = cv2.HoughLines(edges,1,np.pi/180,200,min_line_length)    
                 min_line_length -= 50
         
@@ -279,7 +286,6 @@ class Clone(object):
             y1 = int(y0 + 1000*(a))
             x2 = int(x0 - 1000*(-b))
             y2 = int(y0 - 1000*(a))
-            cv2.line(gimg,(x1,y1),(x2,y2),(0,0,255),2)
             
             # y=mx+b
             try:
@@ -492,7 +498,7 @@ class Clone(object):
         # finds dorsal point of the eye
         
         try:
-            if im.shape[2] == 4:
+            if im.shape[2] == 4 or im.shape[2] == 3:
                 im = im[:,:,self.eye_channel]
         except IndexError:
             pass
@@ -572,7 +578,7 @@ class Clone(object):
             x_t, y_t = self.tail
 
             x1 = 0.5*(x_h + x_t)
-            x2 = 0.5*(y_h + y_t)
+            y1 = 0.5*(y_h + y_t)
             x2 = 1.5*self.dorsal[0] - 0.5*x1
             y2 = 1.5*self.dorsal[1] - 0.5*y1
 
@@ -600,51 +606,53 @@ class Clone(object):
             else: return False
     
     def get_pedestal_height(self,im,segim):
+        try:
+            if segim.shape[2] == 4:
+                segim = segim[:,:,self.background_channel]
 
-        if segim.shape[2] == 4:
-            segim = segim[:,:,self.background_channel]
+            gimg = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+            gimg[np.where(segim)] = 255
 
-        gimg = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-        gimg[np.where(segim)] = 255
+            hy = self.head[1]
+            hx = self.head[0]
+            dpy = self.dorsal_point[1]
+            dpx = self.dorsal_point[0]
+          
+            mid_x = 0.5*(hx + dpx)
+            mid_y = 0.5*(hy + dpy)
+            
+            d = self.dist((hx,hy),(dpx,dpy))
 
-        hy = self.head[1]
-        hx = self.head[0]
-        dpy = self.dorsal_point[1]
-        dpx = self.dorsal_point[0]
-      
-        mid_x = 0.5*(hx + dpx)
-        mid_y = 0.5*(hy + dpy)
-        
-        d = self.dist((hx,hy),(dpx,dpy))
+            # we'll initialize the active countour snake as a semi-circle
+            # centered at the midpoint between head/dorsal point
 
-        # we'll initialize the active countour snake as a semi-circle
-        # centered at the midpoint between head/dorsal point
+            pedestal_x_sign = np.sign(mid_x-self.animal_x_center)
 
-        pedestal_x_sign = np.sign(mid_x-self.animal_x_center)
+            theta1 = np.arctan((dpx - mid_x)/(dpy - mid_y))
+            theta2 = theta1 + pedestal_x_sign*np.pi
 
-        theta1 = np.arctan((dpx - mid_x)/(dpy - mid_y))
-        theta2 = theta1 + pedestal_x_sign*np.pi
+            s = np.linspace(theta1,theta2, 400)
+            y = mid_y + 0.5*d*np.cos(s)
+            x = mid_x + 0.5*d*np.sin(s)
 
-        s = np.linspace(theta1,theta2, 400)
-        y = mid_y + 0.5*d*np.cos(s)
-        x = mid_x + 0.5*d*np.sin(s)
+            # active countour flips x/y, so we structure the initial snake like so:
+            init = np.array([y, x]).T
+            snake = active_contour(gaussian(gimg, 1), init, bc='fixed',
+                                               alpha=1, beta=1, w_line=-5, w_edge=10, gamma=0.1)
 
-        # active countour flips x/y, so we structure the initial snake like so:
-        init = np.array([y, x]).T
-        snake = active_contour(gaussian(gimg, 1), init, bc='fixed',
-                                           alpha=1, beta=1, w_line=-5, w_edge=10, gamma=0.1)
+            line_x = np.linspace(int(self.dorsal_point[1]),int(self.head[1]),400)
+            line_y = np.linspace(int(self.dorsal_point[0]),int(self.head[0]),400)
+            line = zip(line_x,line_y)
 
-        line_x = np.linspace(int(self.dorsal_point[1]),int(self.head[1]),400)
-        line_y = np.linspace(int(self.dorsal_point[0]),int(self.head[0]),400)
-        line = zip(line_x,line_y)
+            distances = np.zeros(400)
+            
+            for i in xrange(400):
+                distances[i] = self.dist(line[i],snake[i])
 
-        distances = np.zeros(400)
-        
-        for i in xrange(400):
-            distances[i] = self.dist(line[i],snake[i])
-        
-        self.pedestal_height = np.max(distances)/self.pixel_to_mm
-
+            self.snake = snake
+            self.pedestal_height = np.max(distances)/self.pixel_to_mm
+        except Exception as e:
+            print "Can't calculate pedestal height because: " + str(e)
     def slice_pedestal(self,im):
    
         # this method calculates pedestal size (the dumb way)
@@ -666,6 +674,6 @@ class Clone(object):
         
         try:
             self.pedestal_score_area = self.pedestal_height/self.animal_area
-            self.pedestal_score_length = self.pedestal_height/self.animal_length
+            self.pedestal_score_height = self.pedestal_height/self.animal_length
         except TypeError:
             print "Pedestal_size or animal_area not calculated"
