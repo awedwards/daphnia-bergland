@@ -61,7 +61,7 @@ class Clone(object):
         self.pedestal_score_height = None
         self.pedestal_score_area = None
         self.snake = None
-
+        self.pixel_to_mm = None
         try:
             self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
             print self.pixel_to_mm
@@ -248,26 +248,26 @@ class Clone(object):
         # a micrometer associated with clone
 
         gimg = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
         cropped = self.crop(gimg)
         
+        w,h = cropped.shape
         cl1 = clahe.apply(cropped)
         highcontrast = cl1.copy()
 
-        w,h = highcontrast.shape
-        
-        edge_threshold = 225
+
+        edge_threshold = 175
         sum_edges = w*h
         lines = None
 
-        while edge_threshold > 0 and not np.any(lines):
+        while (edge_threshold > 0 and not np.any(lines)):
 
             edges = cv2.Canny(highcontrast,0,edge_threshold,apertureSize = 3)
             sum_edges = np.sum(edges)
             edge_threshold -= 25
             min_line_length = 200
 
-            while (min_line_length > 0) and not np.any(lines) and ((sum_edges/(255*w*h))):
+            while (min_line_length > 0) and not np.any(lines) and (sum_edges/(255*w*h) < 0.5):
                 lines = cv2.HoughLines(edges,1,np.pi/180,200,min_line_length)    
                 min_line_length -= 50
         
