@@ -3,13 +3,16 @@ from clone import Clone
 import utils
 import plot
 import os
+import pandas
 import numpy as np
 from collections import defaultdict
 import cv2
+from openpyxl import load_workbook 
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
+INDUCTIONMEDATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 ext = '.bmp'
 
 doAreaCalc = True
@@ -20,14 +23,33 @@ doLength = True
 doPedestalScore = False
 
 files = os.listdir(DATADIR)
-clone_dict = defaultdict(list)
+clones = dict()
+
+print "Loading induction data\n"
+inductiondates = dict()
+inductionfiles = os.listdir(INDUCTIONMEDATADIR)
+
+for i in inductionfiles:
+    if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
+        print i 
+        wb = load_workbook(os.path.join(INDUCTIONMEDATADIR,i),data_only=True)
+        data = wb["Inductions"].values
+        cols = next(data)[0:]
+        data = list(data)
+        df = pandas.DataFrame(data, columns=cols)
+        df = df[df.ID_Number.notnull()] 
+        for j,row in df.iterrows():
+            if not row['ID_Number'] == "NaT":
+
+                inductiondates[row['ID_Number']] = row['Induction_Date']
+                print row['ID_Number']
 
 print "Loading clone data\n"
 build_clonedata = True
 
 try:
     if build_clonedata: raise(IOError)
-    clone_dict = utils.load_pkl("clonedata", ANALYSISDIR)
+    clones = utils.load_pkl("clonedata", ANALYSISDIR)
 except IOError:
     print "Clone data could not be located. Building from scratch:\n"
     
@@ -52,50 +74,52 @@ except IOError:
                 filebase = "_".join((barcode,clone_id,treatment,replicate,rig,datetime)) + ext 
           
                 print "Adding " + filebase + " to clone list and calculating scale"
-                
-                clone_dict[clone_id].append(Clone(barcode,clone_id,treatment,replicate,rig,datetime,DATADIR,SEGDATADIR))
+                if barcode in inductiondates.keys():
+                    induced = inductiondates[barcode]
+                else:
+                    induced = None
+
+                clones[barcode] = Clone(barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,SEGDATADIR)
                 
                 try:
-                    clone_dict[clone_id][-1].pixel_to_mm = manual_scales[clone_dict[clone_id][-1].micro_filepath]
+                    clones[barcode].pixel_to_mm = manual_scales[clones[barcode].micro_filepath]
                 except (KeyError, AttributeError):
                     pass
 
-    utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
+    utils.save_pkl(clones, ANALYSISDIR, "clonedata")
 
-analysis = True
+analysis = False
 
 total = 0
-for keys in clone_dict.keys():
-    total += len(clone_dict[keys])
+for keys in clones.keys():
+    total += len(clones[keys])
 
 so_far = 0
 with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
     if analysis:
-        for keys in clone_dict.keys()[4:]:
-            so_far += len(clone_dict[keys])
-            for clone in clone_dict[keys]:
-                print "Analyzing " + str(clone.filebase)
-                try:
-                    split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
-                    if doAreaCalc:
-                        clone.calculate_area(split)
-                    if doAnimalEllipseFit:
-                        clone.fit_animal_ellipse(split)
-                    if doEyeEllipseFit:
-                        clone.fit_ellipse(split, "eye", 4.6)
+        for clone in clones.values():
+            print "Analyzing " + str(clone.filebase)
+            try:
+                split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
+                if doAreaCalc:
+                    clone.calculate_area(split)
+                if doAnimalEllipseFit:
+                    clone.fit_animal_ellipse(split)
+                if doEyeEllipseFit:
+                    clone.fit_ellipse(split, "eye", 4.6)
 
-                    if doBodyLandmarks:
-                        clone.find_body_landmarks(split)
+                if doBodyLandmarks:
+                    clone.find_body_landmarks(split)
 
-                    if doLength:
-                        clone.calculate_length()
-                    if doPedestalScore:
-                        im = cv2.imread(clone.full_filepath)
-                        clone.get_pedestal_height(im,split)
-                        clone.calculate_pedestal_score()
-                except AttributeError as e:
-                    print str(e)
-                    f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")        
-            print "Analyzed " + str(so_far) + " out of " + str(total) + "(" + str((so_far/total)*100) + "%)"
-            print "Saving pickle"
-            utils.save_pkl(clone_dict, ANALYSISDIR, "clonedata")
+                if doLength:
+                    clone.calculate_length()
+                if doPedestalScore:
+                    im = cv2.imread(clone.full_filepath)
+                    clone.get_pedestal_height(im,split)
+                    clone.calculate_pedestal_score()
+            except AttributeError as e:
+                print str(e)
+                f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")        
+        print "Analyzed " + str(so_far) + " out of " + str(total) + "(" + str((so_far/total)*100) + "%)"
+        print "Saving pickle"
+        utils.save_pkl(clones, ANALYSISDIR, "clonedata")

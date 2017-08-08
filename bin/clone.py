@@ -16,7 +16,7 @@ import utils
 
 class Clone(object):
     
-    def __init__(self,barcode,cloneid,treatment,replicate,rig,datetime,datadir,segdatadir):
+    def __init__(self,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir):
         
         self.cloneid = cloneid
         self.pond = None
@@ -27,6 +27,7 @@ class Clone(object):
         self.replicate = replicate
         self.rig = rig
         self.datetime = datetime
+        self.inductiondate = induction
          
         delim = "_"
         ext = ".bmp"
