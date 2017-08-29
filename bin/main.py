@@ -42,10 +42,10 @@ for i in inductionfiles:
             if not row['ID_Number'] == "NaT":
 
                 inductiondates[row['ID_Number']] = row['Induction_Date']
-                print row['ID_Number']
 
 print "Loading clone data\n"
-build_clonedata = True
+build_clonedata = False 
+clones = defaultdict(list)
 
 try:
     if build_clonedata: raise(IOError)
@@ -79,7 +79,7 @@ except IOError:
                 else:
                     induced = None
 
-                clones[barcode] = Clone(barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,SEGDATADIR)
+                clones[barcode].append(Clone(barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,SEGDATADIR))
                 
                 try:
                     clones[barcode].pixel_to_mm = manual_scales[clones[barcode].micro_filepath]
@@ -88,38 +88,35 @@ except IOError:
 
     utils.save_pkl(clones, ANALYSISDIR, "clonedata")
 
-analysis = False
-
-total = 0
-for keys in clones.keys():
-    total += len(clones[keys])
-
+analysis = True
 so_far = 0
 with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
     if analysis:
-        for clone in clones.values():
-            print "Analyzing " + str(clone.filebase)
-            try:
-                split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
-                if doAreaCalc:
-                    clone.calculate_area(split)
-                if doAnimalEllipseFit:
-                    clone.fit_animal_ellipse(split)
-                if doEyeEllipseFit:
-                    clone.fit_ellipse(split, "eye", 4.6)
+        for barcode in clones.keys():
+            for clone in clones[barcode]:
+                print "Analyzing " + str(clone.filebase)
+                try:
+                    split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
+                    if doAreaCalc:
+                        clone.calculate_area(split)
+                    if doAnimalEllipseFit:
+                        clone.fit_animal_ellipse(split)
+                    if doEyeEllipseFit:
+                        clone.fit_ellipse(split, "eye", 4.6)
 
-                if doBodyLandmarks:
-                    clone.find_body_landmarks(split)
+                    if doBodyLandmarks:
+                        clone.find_body_landmarks(split)
 
-                if doLength:
-                    clone.calculate_length()
-                if doPedestalScore:
-                    im = cv2.imread(clone.full_filepath)
-                    clone.get_pedestal_height(im,split)
-                    clone.calculate_pedestal_score()
-            except AttributeError as e:
-                print str(e)
-                f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")        
-        print "Analyzed " + str(so_far) + " out of " + str(total) + "(" + str((so_far/total)*100) + "%)"
-        print "Saving pickle"
-        utils.save_pkl(clones, ANALYSISDIR, "clonedata")
+                    if doLength:
+                        clone.calculate_length()
+                    if doPedestalScore:
+                        im = cv2.imread(clone.full_filepath)
+                        clone.get_pedestal_height(im,split)
+                        clone.calculate_pedestal_score()
+                except AttributeError as e:
+                    print str(e)
+                    f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")
+                so_far+=1
+
+                if so_far%100==0:
+                    utils.save_pkl(clones, ANALYSISDIR, "clonedata")

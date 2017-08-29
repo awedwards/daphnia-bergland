@@ -47,3 +47,9 @@ def parse(s):
     filetype,barcode,cloneid,treatment,replicate,rigId,datetime = m.groups()
 
     return filetype,barcode,cloneid,treatment,replicate,rigId,datetime
+
+def norm(x):
+
+    # normalizes an array such that values lie between 0 and 1
+
+    return (x - np.min(x)) / (np.max(x) - np.min(x))

@@ -22,6 +22,26 @@ class Clone(object):
         self.pond = None
         self.id = None
         self.pond, self.id = utils.parsePond(self.cloneid)
+        
+        if self.cloneid in ["C14","LD33","Chard","D8.4A","D8.6A","D8.7A","Cyril"]:
+            self.season = "misc"
+        elif self.pond == "D8":
+            if "AD" in self.cloneid:
+                self.season = "spring_2016"
+            else: self.season = "spring_2017"
+        elif self.pond == "AW":
+            self.season = "spring_2016"
+        elif self.pond == "D10":
+            if "AD" in self.cloneid:
+                self.season = "spring_2016"
+            else: self.season = "fall_2017"
+        elif self.pond == "DBunk":
+            self.season = "spring_2017"
+        
+        if self.cloneid in ["D8_183","D8_191","D8_213","DBunk_90","DBunk_131","DBunk_132"]:
+            self.control = True
+        else: self.control = False
+
         self.barcode = barcode
         self.treatment = treatment
         self.replicate = replicate
@@ -63,6 +83,7 @@ class Clone(object):
         self.pedestal_score_area = None
         self.snake = None
         self.pixel_to_mm = None
+        
         try:
             self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
             print self.pixel_to_mm
@@ -545,21 +566,29 @@ class Clone(object):
 
     def find_tail(self, im):
         
-        im = self.sanitize(im)
+        # uses ellipse fit to find tail landmark
+        #
+        # input: grayscale raw image
 
-        if self.posterior is None:
-            self.get_anatomical_directions()
+        if len(im.shape) == 3:
+            im = cv2.cvtColor(im, cvt.COLOR_BGR2GRAY)
 
-        if self.posterior is not None:
+        x, y = clone.posterior
+        w, h = im.shape
 
-            x1 = self.animal_x_center
-            y1 = self.animal_y_center
+        # crop around posterior
+        t = 100
+        bb = np.zeros((4,2))
+        bb[0, :] = [np.max([x-t, 0]), np.max([y-t, 0])]
+        bb[1, :] = [np.min([x+t, w]), np.max([y-t, 0])]
+        bb[2, :] = [np.max([x-t, 0]), np.min([y+t, h])]
+        bb[3, :] = [np.min([x+t, w]), np.min([y+t, h])]
+        cropped = im[int(bb[0,0]):int(bb[3,0]), int(bb[0,1]):int(bb[3,1])]
+        
+        # create high contrast image of ROI
+        clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize=(8,8))
+        hc = clahe.apply(cropped)
 
-            x2 = 1.5*self.posterior[0] - 0.5*x1
-            y2 = 1.5*self.posterior[1] - 0.5*y1
-
-            self.tail = self.find_zero_crossing(im, (x1,y1), (x2,y2))
- 
     def find_dorsal_point(self, im):
         
         im = self.sanitize(im)
