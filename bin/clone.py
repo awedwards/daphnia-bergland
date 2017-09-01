@@ -467,21 +467,19 @@ class Clone(object):
         
         self.fit_ellipse(animal,"animal",4.6)
 
-    def find_body_landmarks(self,im):
-        
+    def find_body_landmarks(self,im,segim):
+        if len(im.shape) > 1:
+            im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         # before merging channels, find eye landmarks:
-        self.find_eye_dorsal(im)
-
+    #    try:
+        self.find_eye_dorsal(segim)
         # this method smooths animal pixels and finds landmarks
-        im = self.sanitize(im)
 
-        thresh = cv2.erode(im, None, iterations=3)
-        thresh = cv2.dilate(thresh, None, iterations=5)
-
-        self.find_head(im)
         self.find_tail(im)
-        self.find_dorsal_point(im)
-        
+        self.find_head(im,segim)
+        #except TypeError as e:
+        #    print "Error in finding body landmarks"
+        #    pass
     def get_anatomical_directions(self):
         
         # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
@@ -541,28 +539,58 @@ class Clone(object):
             
             self.eye_dorsal = self.find_zero_crossing(im,(x1,y1),(x2,y2))
     
-    def find_head(self, im):
-
-        im = self.sanitize(im)
+    def find_head(self, im, segim):
 
         if self.tail is None:
             self.find_tail(im)
         
         if self.eye_dorsal is None:
-            self.find_eye_dorsal(im)
-        
+            self.find_eye_dorsal(segim)
+
         if (self.tail is not None) and (self.eye_dorsal is not None):
 
-            # want to go through back of eye
             x1 = self.eye_dorsal[0]
             y1 = self.eye_dorsal[1]
            
-            # should just need to go a bit beyond eye_dorsal point,
-            # but we'll go even further just to make sure
-            x2 = 1.5*x1 - 0.5*self.tail[0]
-            y2 = 1.5*y1 - 0.5*self.tail[1]
+            idx_x, idx_y = self.gradient_mask(im, "head",0.35)
+            
+            mask = im.copy()
+            mask[idx_x, idx_y] = 0
 
-            self.head = self.find_zero_crossing(im, (x1,y1), (x2,y2))
+            x1 = self.eye_dorsal[0]
+            y1 = self.eye_dorsal[1]
+
+            m = (self.tail[1] - y1)/(self.tail[0] - x1)
+            b = y1 - x1*m
+
+            x2 = 1.25*self.anterior[0] - 0.25*self.animal_x_center
+            y2 = m*x1 + b
+
+            npoints = max(np.abs(y2 - y1), np.abs(x2 - x1))*2
+            x,y = np.linspace(x1,x2,npoints), np.linspace(y1,y2,npoints)
+
+            z = scipy.ndimage.map_coordinates(mask, np.vstack((x,y)), mode='nearest')
+            df = pd.DataFrame(z)
+
+            hx = list()
+            hy = list()
+
+            found = False
+
+            for i in df.iterrows():
+                if i[1][0] == 0:
+                    hx.append(x[i[0]])
+                    hy.append(y[i[0]])
+
+                    found = True
+
+            if not found:
+                hx, hy = x1, y1
+            else:
+                hx = np.mean(hx)
+                hy = np.mean(hy)
+
+            self.head = hx, hy
 
     def find_tail(self, im):
         
@@ -570,24 +598,57 @@ class Clone(object):
         #
         # input: grayscale raw image
 
-        if len(im.shape) == 3:
-            im = cv2.cvtColor(im, cvt.COLOR_BGR2GRAY)
+        idx_x, idx_y = self.gradient_mask(im, "tail")
+        
+        targetx = self.posterior[0] + self.dorsal[0] - self.animal_x_center
+        targety = self.posterior[1] + self.dorsal[1] - self.animal_y_center
 
-        x, y = clone.posterior
+        tail_idx = np.argmin(np.sqrt((idx_x - targetx)**2 + (idx_y - targety)**2))
+        self.tail = [idx_x[tail_idx], idx_y[tail_idx]]
+
+    def gradient_mask(self, im, part, threshold=0.3):
+
+        if len(im.shape) == 3:
+            im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+
+        if part == "tail":
+            x, y = self.posterior
+        elif part == "head":
+            x, y = self.anterior
+
         w, h = im.shape
 
-        # crop around posterior
         t = 100
         bb = np.zeros((4,2))
         bb[0, :] = [np.max([x-t, 0]), np.max([y-t, 0])]
         bb[1, :] = [np.min([x+t, w]), np.max([y-t, 0])]
         bb[2, :] = [np.max([x-t, 0]), np.min([y+t, h])]
         bb[3, :] = [np.min([x+t, w]), np.min([y+t, h])]
+
         cropped = im[int(bb[0,0]):int(bb[3,0]), int(bb[0,1]):int(bb[3,1])]
-        
-        # create high contrast image of ROI
-        clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize=(8,8))
+
+        clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (8,8))
         hc = clahe.apply(cropped)
+
+        blur = gaussian(hc, 1.5)
+        dx, dy = np.gradient(blur)
+        
+        posterior = [self.animal_x_center - self.posterior[0], self.animal_y_center - self.posterior[1]]
+        dorsal = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
+        ventral = [self.animal_x_center - self.ventral[0], self.animal_y_center - self.ventral[1]]
+        anterior = [self.animal_x_center - self.anterior[0], self.animal_y_center - self.anterior[1]]
+        
+        if part == "tail":
+            post_dot = posterior[0]*dx + posterior[1]*dy
+            idx_x, idx_y = np.where(utils.norm(post_dot) < threshold)
+        if part == "head":
+            ant_dot = anterior[0]*dx + anterior[1]*dy
+            idx_x, idx_y = np.where(utils.norm(ant_dot) < threshold)
+
+        idx_x += int(bb[0,0])
+        idx_y += int(bb[0,1])
+
+        return idx_x, idx_y
 
     def find_dorsal_point(self, im):
         
