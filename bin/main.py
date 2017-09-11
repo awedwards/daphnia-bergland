@@ -74,7 +74,7 @@ except IOError:
                 filebase = "_".join((barcode,clone_id,treatment,replicate,rig,datetime)) + ext 
           
                 print "Adding " + filebase + " to clone list and calculating scale"
-                if barcode in inductiondates.keys():
+                if barcode in inductiondates.iterkeys():
                     induced = inductiondates[barcode]
                 else:
                     induced = None
@@ -108,7 +108,7 @@ def analyze(clone):
 
 with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
     if analysis:
-        for barcode in clones.keys():
+        for barcode in clones.iterkeys():
             for clone in clones[barcode]:
                 clonelist = clones[barcode]
                 print "Analyzing " + str(clone.filebase)
