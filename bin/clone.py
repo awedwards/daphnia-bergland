@@ -405,7 +405,7 @@ class Clone(object):
             # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
 
             #convert segmentation image to list of points
-            points = np.array(np.where(ob))
+            points = np.array(np.where(im))
             n = points.shape[1]
             
             #calculate mean
