@@ -119,7 +119,7 @@ with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
                     if doAnimalEllipseFit:
                         clone.fit_animal_ellipse(split)
                     if doEyeEllipseFit:
-                        clone.fit_ellipse(split, "eye", 4.6)
+                        clone.fit_eye_ellipse(split)
 
                     if doBodyLandmarks:
                         if clone.tail is None:

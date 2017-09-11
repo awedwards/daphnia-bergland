@@ -396,22 +396,13 @@ class Clone(object):
         except Exception as e:
             print e
 
-    def fit_ellipse(self,im,objectType, chi_2):
+    def fit_ellipse(self, im, chi_2):
         
         # fit an ellipse to the animal pixels
 
         try:
             # input: segmentation image
             # return xcenter,ycenter,major_axis_length,minor_axis_length,theta
-
-            # merge animal and eye channels
-            if objectType == "animal":
-                ob = self.sanitize(im)
-            elif objectType == "eye":
-                ob = im[:,:,self.eye_channel]
-            else:
-                print "Don't know how to fit ellipse to this object type"
-                return
 
             #convert segmentation image to list of points
             points = np.array(np.where(ob))
@@ -440,12 +431,8 @@ class Clone(object):
             # calculate angle of largest eigenvector towards the x-axis to get theta relative to x-axis
             v = v[minor]
             theta = np.arctan(v[1]/v[0])
-
-            setattr(self, objectType + "_x_center", x_center)
-            setattr(self, objectType + "_y_center", y_center)
-            setattr(self, objectType + "_major", major_l)
-            setattr(self, objectType + "_minor", minor_l)
-            setattr(self, objectType + "_theta", theta)
+            
+            return x_center, y_center, major_l, minor_l, theta
 
         except Exception as e:
             print "Error fitting ellipse: " + str(e)
@@ -457,7 +444,8 @@ class Clone(object):
 
         im = self.sanitize(im)
 
-        self.fit_ellipse(im,"animal",9.21)
+        self.animal_x_center, self.animal_y_center, self.animal_major, self.animal_minor, self.animal_theta = self.fit_ellipse(im,9.21)
+
         animal = im.copy()
         el = matplotlib.patches.Ellipse((int(self.animal_x_center),int(self.animal_y_center)), int(self.animal_major), int(self.animal_minor),int(self.animal_theta*(180/np.pi)))
         points = list(zip(*(c.flat for c in np.where(animal))))
@@ -465,7 +453,14 @@ class Clone(object):
         for i in points:
             if not el.contains_point(i): animal[i] = 0                                               
         
-        self.fit_ellipse(animal,"animal",4.6)
+        self.animal_x_center, self.animal_y_center, self.animal_major, self.animal_minor, self.animal_theta = self.fit_ellipse(animal,9.21)
+
+    def fit_eye_ellipse(self,im):
+
+        if im.shape[2] == 4:
+            im = im[:, :, self.eye_channel]
+
+        self.eye_x_center, self.eye_y_center, self.eye_major, self.eye_minor, self.eye_theta = self.fit_ellipse(im, 4.6)
 
     def find_body_landmarks(self,im,segim):
         if len(im.shape) > 1:
