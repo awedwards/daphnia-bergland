@@ -66,7 +66,7 @@ class Clone(object):
         if os.path.isfile(os.path.join(segdatadir, "full_" + self.filebase)):
             self.full_seg_filepath = os.path.join(segdatadir, "full_" + self.filebase)
 
-        if os.path.isfile(os.path.join(segdatadir, "close_" + self.filebase)):
+        if os.path.isfile(os.path.join(closesegdatadir, "close_" + self.filebase)):
             self.close_seg_filepath = os.path.join(closesegdatadir, "close_" + self.filebase)
         
         self.background_channel = 0
