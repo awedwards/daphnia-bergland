@@ -11,6 +11,7 @@ from openpyxl import load_workbook
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation"
+CLOSESEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation_close"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
 INDUCTIONMEDATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 ext = '.bmp'
@@ -31,7 +32,7 @@ inductionfiles = os.listdir(INDUCTIONMEDATADIR)
 
 for i in inductionfiles:
     if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
-        print i 
+        print "Loading " + i
         wb = load_workbook(os.path.join(INDUCTIONMEDATADIR,i),data_only=True)
         data = wb["Inductions"].values
         cols = next(data)[0:]
@@ -40,11 +41,10 @@ for i in inductionfiles:
         df = df[df.ID_Number.notnull()] 
         for j,row in df.iterrows():
             if not row['ID_Number'] == "NaT":
-
                 inductiondates[row['ID_Number']] = row['Induction_Date']
 
 print "Loading clone data\n"
-build_clonedata = False 
+build_clonedata = True 
 clones = defaultdict(list)
 
 try:
@@ -79,7 +79,7 @@ except IOError:
                 else:
                     induced = None
 
-                clones[barcode].append(Clone(barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,SEGDATADIR))
+                clones[barcode].append(Clone(barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,SEGDATADIR,CLOSESEGDATADIR))
                 
                 try:
                     clones[barcode].pixel_to_mm = manual_scales[clones[barcode].micro_filepath]
@@ -90,10 +90,27 @@ except IOError:
 
 analysis = True
 so_far = 0
+
+def analyze(clone):
+    try:
+        im = cv2.imread(clone.full_filepath)
+        split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
+
+        clone.calculate_area(split)
+        clone.fit_animal_ellipse(split)
+        clone.fit_ellipse(split,"eye", 4.6)
+        clone.find_body_landmarks(im, split)
+        clone.calculate_length()
+        print "Analyzed " + clone.full_filepath
+        return clone
+    except Exception as e:
+        print Exception
+
 with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
     if analysis:
         for barcode in clones.keys():
             for clone in clones[barcode]:
+                clonelist = clones[barcode]
                 print "Analyzing " + str(clone.filebase)
                 try:
                     split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
@@ -105,7 +122,9 @@ with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
                         clone.fit_ellipse(split, "eye", 4.6)
 
                     if doBodyLandmarks:
-                        clone.find_body_landmarks(split)
+                        if clone.tail is None:
+                            im = cv2.imread(clone.full_filepath)
+                            clone.find_body_landmarks(im, split)
 
                     if doLength:
                         clone.calculate_length()
@@ -119,4 +138,6 @@ with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
                 so_far+=1
 
                 if so_far%100==0:
+                    print "Saving " + str(so_far) + " out of many"
                     utils.save_pkl(clones, ANALYSISDIR, "clonedata")
+        utils.save_pkl(clones,ANALYSISDIR, "clonedata")

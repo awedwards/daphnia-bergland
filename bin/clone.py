@@ -16,7 +16,7 @@ import utils
 
 class Clone(object):
     
-    def __init__(self,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir):
+    def __init__(self,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir,closesegdatadir):
         
         self.cloneid = cloneid
         self.pond = None
@@ -67,7 +67,7 @@ class Clone(object):
             self.full_seg_filepath = os.path.join(segdatadir, "full_" + self.filebase)
 
         if os.path.isfile(os.path.join(segdatadir, "close_" + self.filebase)):
-            self.close_seg_filepath = os.path.join(segdatadir, "close_" + self.filebase)
+            self.close_seg_filepath = os.path.join(closesegdatadir, "close_" + self.filebase)
         
         self.background_channel = 0
         self.animal_channel = 1
