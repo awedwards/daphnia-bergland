@@ -507,6 +507,11 @@ class Clone(object):
         elif self.dist((e_x, e_y), minor_vertex_2) < self.dist((e_x, e_y), minor_vertex_1):
             self.ventral = minor_vertex_2
             self.dorsal = minor_vertex_1
+        
+        if (self.dorsal[0] < 0) or (self.dorsal[0] > 768) or (self.dorsal[1] < 0) or (self.dorsal[1] > 1024):
+            tmp = self.dorsal
+            self.dorsal = self.ventral
+            self.ventral = tmp
 
     def find_eye_dorsal(self,im):
 
