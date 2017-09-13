@@ -5,7 +5,6 @@ import plot
 import os
 import pandas
 import numpy as np
-from collections import defaultdict
 import cv2
 from openpyxl import load_workbook 
 
@@ -20,39 +19,43 @@ doAreaCalc = True
 doAnimalEllipseFit = True
 doEyeEllipseFit = True
 doBodyLandmarks = True
-doLength = True
+doLength = False
+doOrientation = True
 doPedestalScore = False
 
 files = os.listdir(DATADIR)
 clones = dict()
 
-print "Loading induction data\n"
-inductiondates = dict()
-inductionfiles = os.listdir(INDUCTIONMEDATADIR)
-
-for i in inductionfiles:
-    if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
-        print "Loading " + i
-        wb = load_workbook(os.path.join(INDUCTIONMEDATADIR,i),data_only=True)
-        data = wb["Inductions"].values
-        cols = next(data)[0:]
-        data = list(data)
-        df = pandas.DataFrame(data, columns=cols)
-        df = df[df.ID_Number.notnull()] 
-        for j,row in df.iterrows():
-            if not row['ID_Number'] == "NaT":
-                inductiondates[row['ID_Number']] = row['Induction_Date']
-
 print "Loading clone data\n"
-build_clonedata = True 
-clones = defaultdict(list)
+build_clonedata = False 
+
+clones = utils.recursivedict()
 
 try:
     if build_clonedata: raise(IOError)
     clones = utils.load_pkl("clonedata", ANALYSISDIR)
 except IOError:
+    
     print "Clone data could not be located. Building from scratch:\n"
     
+    print "Loading induction data\n"
+    inductiondates = dict()
+    inductionfiles = os.listdir(INDUCTIONMEDATADIR)
+
+    for i in inductionfiles:
+        if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
+            print "Loading " + i
+            wb = load_workbook(os.path.join(INDUCTIONMEDATADIR,i),data_only=True)
+            data = wb["Inductions"].values
+            cols = next(data)[0:]
+            data = list(data)
+            df = pandas.DataFrame(data, columns=cols)
+            df = df[df.ID_Number.notnull()] 
+            for j,row in df.iterrows():
+                if not row['ID_Number'] == "NaT":
+                    inductiondates[row['ID_Number']] = row['Induction_Date']
+
+   
     # load manual_scales
     manual_scales = dict()
     with open(os.path.join(ANALYSISDIR, "manual_scales.txt"),'rb') as f:
@@ -66,23 +69,28 @@ except IOError:
         
         if f.startswith("._"):
             continue
-        elif f.endswith(ext) and f.startswith("full_"):
-
+        elif f.endswith(ext) and (f.startswith("full_") or f.startswith("close_")):
+            
+            print "Adding " + f + " to clone list and calculating scale"
             imagetype,barcode,clone_id,treatment,replicate,rig,datetime = utils.parse(f)
             
             if barcode is not None:
-                filebase = "_".join((barcode,clone_id,treatment,replicate,rig,datetime)) + ext 
           
-                print "Adding " + filebase + " to clone list and calculating scale"
                 if barcode in inductiondates.iterkeys():
                     induced = inductiondates[barcode]
                 else:
                     induced = None
-
-                clones[barcode].append(Clone(barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,SEGDATADIR,CLOSESEGDATADIR))
                 
+                if imagetype == "full":
+                    segdir = SEGDATADIR
+                elif imagetype == "close":
+                    segdir = CLOSESEGDATADIR
+
+                clones[barcode][datetime][imagetype] = Clone(imagetype,barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,segdir)
+                if imagetype == "close":
+                    clones[barcode][datetime][imagetype].pixel_to_mm = 1105.33
                 try:
-                    clones[barcode].pixel_to_mm = manual_scales[clones[barcode].micro_filepath]
+                    clones[barcode][datetime][imagetype].pixel_to_mm = manual_scales[clones[barcode].micro_filepath]
                 except (KeyError, AttributeError):
                     pass
 
@@ -109,35 +117,42 @@ def analyze(clone):
 with open("/home/austin/Documents/daphnia_analysis_log.txt", "wb") as f:
     if analysis:
         for barcode in clones.iterkeys():
-            for clone in clones[barcode]:
-                clonelist = clones[barcode]
-                print "Analyzing " + str(clone.filebase)
-                try:
-                    split = clone.split_channels(cv2.imread(clone.full_seg_filepath))
-                    if doAreaCalc:
-                        clone.calculate_area(split)
-                    if doAnimalEllipseFit:
-                        clone.fit_animal_ellipse(split)
-                    if doEyeEllipseFit:
-                        clone.fit_eye_ellipse(split)
+            for dt in clones[barcode].iterkeys():
+                for imtype in clones[barcode][dt].iterkeys():
+                    clone = clones[barcode][dt][imtype]
+                    print "Analyzing " + str(clone.filepath)
+                    try:
+                        split = clone.split_channels(cv2.imread(clone.seg_filepath))
+                        if doAreaCalc:
+                            print "Calculating area."
+                            clone.calculate_area(split)
+                        if doAnimalEllipseFit:
+                            print "Fitting ellipse to body."
+                            clone.fit_animal_ellipse(split)
+                        if doEyeEllipseFit:
+                            print "Fitting ellipse to eye."
+                            clone.fit_eye_ellipse(split)
+                        if doOrientation:
+                            print "Finding animal orientation."
+                            clone.get_anatomical_directions()
+                        if doBodyLandmarks and imtype == "full":
+                            print "Finding body landmarks."
+                            if clone.tail is None:
+                                im = cv2.imread(clone.filepath)
+                                clone.find_body_landmarks(im, split)
+                        if doLength:
+                            print "Calculating length."
+                            clone.calculate_length()
+                        if doPedestalScore:
+                            im = cv2.imread(clone.filepath)
+                            clone.get_pedestal_height(im,split)
+                            clone.calculate_pedestal_score()
+                    except AttributeError as e:
+                        print str(e)
+                        f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")
+                    so_far+=1
 
-                    if doBodyLandmarks:
-                        if clone.tail is None:
-                            im = cv2.imread(clone.full_filepath)
-                            clone.find_body_landmarks(im, split)
-
-                    if doLength:
-                        clone.calculate_length()
-                    if doPedestalScore:
-                        im = cv2.imread(clone.full_filepath)
-                        clone.get_pedestal_height(im,split)
-                        clone.calculate_pedestal_score()
-                except AttributeError as e:
-                    print str(e)
-                    f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")
-                so_far+=1
-
-                if so_far%100==0:
-                    print "Saving " + str(so_far) + " out of many"
-                    utils.save_pkl(clones, ANALYSISDIR, "clonedata")
+                    if so_far%100==0:
+                        print "Saving " + str(so_far) + " out of many"
+                        utils.save_pkl(clones, ANALYSISDIR, "clonedata")
         utils.save_pkl(clones,ANALYSISDIR, "clonedata")

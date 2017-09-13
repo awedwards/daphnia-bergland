@@ -16,8 +16,9 @@ import utils
 
 class Clone(object):
     
-    def __init__(self,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir,closesegdatadir):
+    def __init__(self,imtype,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir):
         
+        self.imtype = imtype
         self.cloneid = cloneid
         self.pond = None
         self.id = None
@@ -54,20 +55,14 @@ class Clone(object):
 
         self.filebase = delim.join((barcode,cloneid,treatment,replicate,rig,datetime)) + ext
 
-        if os.path.isfile(os.path.join(datadir, "full_" + self.filebase)):
-            self.full_filepath = os.path.join(datadir, "full_" + self.filebase)
+        if os.path.isfile(os.path.join(datadir, imtype + "_" + self.filebase)):
+            self.filepath = os.path.join(datadir, imtype + "_" + self.filebase)
         
-        if os.path.isfile(os.path.join(datadir, "close_" + self.filebase)):
-            self.close_filepath = os.path.join(datadir, "close_" + self.filebase)
-
         if os.path.isfile(os.path.join(datadir, "fullMicro_" + self.filebase)):
             self.micro_filepath = os.path.join(datadir, "fullMicro_" + self.filebase)
         
-        if os.path.isfile(os.path.join(segdatadir, "full_" + self.filebase)):
-            self.full_seg_filepath = os.path.join(segdatadir, "full_" + self.filebase)
-
-        if os.path.isfile(os.path.join(closesegdatadir, "close_" + self.filebase)):
-            self.close_seg_filepath = os.path.join(closesegdatadir, "close_" + self.filebase)
+        if os.path.isfile(os.path.join(segdatadir, imtype + "_" + self.filebase)):
+            self.seg_filepath = os.path.join(segdatadir, imtype + "_" + self.filebase)
         
         self.background_channel = 0
         self.animal_channel = 1
@@ -84,11 +79,11 @@ class Clone(object):
         self.snake = None
         self.pixel_to_mm = None
         
-        try:
-            self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
-            print self.pixel_to_mm
-        except Exception as e:
-            print "Could not calculate pixel image because of the following error: " + str(e)
+        if imtype == "full":
+            try:
+                self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
+            except Exception as e:
+                print "Could not calculate pixel image because of the following error: " + str(e)
 
         self.animal_x_center = None
         self.animal_y_center = None
@@ -465,8 +460,8 @@ class Clone(object):
     def find_body_landmarks(self,im,segim):
         if len(im.shape) > 1:
             im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+        
         # before merging channels, find eye landmarks:
-    #    try:
         self.find_eye_dorsal(segim)
         # this method smooths animal pixels and finds landmarks
 

@@ -2,6 +2,7 @@ import pickle
 import os
 import numpy as np
 import re
+from collections import defaultdict
 
 def save_pkl(obj, path, name):
     with open(os.path.join(path, name) + '.pkl','wb') as f:
@@ -53,3 +54,9 @@ def norm(x):
     # normalizes an array such that values lie between 0 and 1
 
     return (x - np.min(x)) / (np.max(x) - np.min(x))
+
+def recursivedict():
+    
+    # initializes a default dictionary with an arbitrary number of dimensions
+
+    return defaultdict(recursivedict)
