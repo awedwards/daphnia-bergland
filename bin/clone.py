@@ -45,6 +45,7 @@ class Clone(object):
 
         self.barcode = barcode
         self.treatment = treatment
+        self.convert_treatment()
         self.replicate = replicate
         self.rig = rig
         self.datetime = datetime
@@ -110,6 +111,21 @@ class Clone(object):
         self.head = None
         self.tail = None
         self.dorsal_point = None
+    
+    def convert_treatment(self):
+        
+        if self.treatment is not None:
+
+            if self.treatment == 'ctrl':
+                self.treatment = 0.0
+            elif self.treatment == 'juju1':
+                self.treatment = 0.1
+            elif self.treatment == 'juju2':
+                self.treatment = 0.25
+            elif (self.treatment == 'juju3') or (self.treatment == 'juju'):
+                self.treatment = 0.5
+            elif self.treatment == 'juju4':
+                self.treatment = 1.0
 
     def crop(self,img):
         
