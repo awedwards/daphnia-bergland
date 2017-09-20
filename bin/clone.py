@@ -38,7 +38,9 @@ class Clone(object):
             else: self.season = "fall_2017"
         elif self.pond == "DBunk":
             self.season = "spring_2017"
-        
+        else:
+            self.season = "other"
+
         if self.cloneid in ["D8_183","D8_191","D8_213","DBunk_90","DBunk_131","DBunk_132"]:
             self.control = True
         else: self.control = False
@@ -61,7 +63,9 @@ class Clone(object):
         
         if os.path.isfile(os.path.join(datadir, "fullMicro_" + self.filebase)):
             self.micro_filepath = os.path.join(datadir, "fullMicro_" + self.filebase)
-        
+        else:
+            self.micro_filepath = None
+
         if os.path.isfile(os.path.join(segdatadir, imtype + "_" + self.filebase)):
             self.seg_filepath = os.path.join(segdatadir, imtype + "_" + self.filebase)
         
@@ -661,121 +665,27 @@ class Clone(object):
 
         return idx_x, idx_y
 
-    def find_dorsal_point(self, im):
-        
-        im = self.sanitize(im)
-
-        if self.dorsal is None:
-            self.get_anatomical_directions()
-
-        if self.head is None:
-            self.find_head(im)
-
-        if self.tail is None:
-            self.find_tail(im)
-
-        if (self.dorsal is not None) and (self.tail is not None) and (self.head is not None):
-
-            x_h, y_h = self.head
-            x_t, y_t = self.tail
-
-            x1 = 0.5*(x_h + x_t)
-            y1 = 0.5*(y_h + y_t)
-            x2 = 1.5*self.dorsal[0] - 0.5*x1
-            y2 = 1.5*self.dorsal[1] - 0.5*y1
-
-            self.dorsal_point = self.find_zero_crossing(im, (x1,y1), (x2,y2))
-
-    def intersect(self, (ax1,ay1,ax2,ay2), (bx1,by1,bx2,by2)):
-        
-        a_m = ((ay2-ay1)/(ax2-ax1))
-        b_m = ((by2-by1)/(bx2-bx1))
-         
-        if a_m == b_m:
-            return False
-        else:
-            a_b = ay1 - a_m*ax1
-            b_b = by1 - b_m*bx1
-             
-            x_int = (b_b - a_b)/(a_m - b_m)
-            y_int = a_m*x_int + a_b
-
-            if (x_int <= max(ax1, ax2) and x_int >= min(ax1, ax2)
-                     and x_int <= max(bx1, bx2) and x_int >= min(bx1, bx2)
-                     and y_int <= max(ay1, ay2) and y_int >= min(ay1, ay2)
-                     and y_int <= max(by1, by2) and y_int >= min(by1, by2)):
-                return True
-            else: return False
-    
-    def get_pedestal_height(self,im,segim):
-        try:
-            if segim.shape[2] == 4:
-                segim = segim[:,:,self.background_channel]
-
-            gimg = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-            gimg[np.where(segim)] = 255
-
-            hy = self.head[1]
-            hx = self.head[0]
-            dpy = self.dorsal_point[1]
-            dpx = self.dorsal_point[0]
-          
-            mid_x = 0.5*(hx + dpx)
-            mid_y = 0.5*(hy + dpy)
-            
-            d = self.dist((hx,hy),(dpx,dpy))
-
-            # we'll initialize the active countour snake as a semi-circle
-            # centered at the midpoint between head/dorsal point
-
-            pedestal_x_sign = np.sign(mid_x-self.animal_x_center)
-
-            theta1 = np.arctan((dpx - mid_x)/(dpy - mid_y))
-            theta2 = theta1 + pedestal_x_sign*np.pi
-
-            s = np.linspace(theta1,theta2, 400)
-            y = mid_y + 0.5*d*np.cos(s)
-            x = mid_x + 0.5*d*np.sin(s)
-
-            # active countour flips x/y, so we structure the initial snake like so:
-            init = np.array([y, x]).T
-            snake = active_contour(gaussian(gimg, 1), init, bc='fixed',
-                                               alpha=1, beta=1, w_line=-5, w_edge=10, gamma=0.1)
-
-            line_x = np.linspace(int(self.dorsal_point[1]),int(self.head[1]),400)
-            line_y = np.linspace(int(self.dorsal_point[0]),int(self.head[0]),400)
-            line = zip(line_x,line_y)
-
-            distances = np.zeros(400)
-            
-            for i in xrange(400):
-                distances[i] = self.dist(line[i],snake[i])
-
-            self.snake = snake
-            self.pedestal_height = np.max(distances)/self.pixel_to_mm
-        except Exception as e:
-            print "Can't calculate pedestal height because: " + str(e)
-    def slice_pedestal(self,im):
-   
-        # this method calculates pedestal size (the dumb way)
+    def initialize_snake(self, im, segim):
 
         im = self.sanitize(im)
-        try:
-            count = 0
-            points = np.where(im)
-            for i in xrange(len(points[0])):
 
-                if self.intersect( (self.animal_x_center, self.animal_y_center, points[0][i],points[1][i]),
-                        (self.head[0],self.head[1], self.dorsal_point[0],self.dorsal_point[1])):
-                    count += 1
-            self.pedestal_size = count/(self.pixel_to_mm**2)
-        except Exception as e:
-            print "Could not calculate pedestal size because: " + str(e)
+        head = self.head
+        tail = self.tail
+        mp = (head[0] + tail[0])/2, (head[1] + tail[1])/2
+        dp = (self.dorsal[0] + mp[0])/2, (self.dorsal[1] + mp[1])/2
+        dvec = self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]
+        diameter = self.dist(self.head, dp)
+        cx, cy = (self.head[0] + dorsal[0])/2, (self.head[1] + dorsal[1])/2
 
-    def calculate_pedestal_score(self):
-        
-        try:
-            self.pedestal_score_area = self.pedestal_height/self.animal_area
-            self.pedestal_score_height = self.pedestal_height/self.animal_length
-        except TypeError:
-            print "Pedestal_size or animal_area not calculated"
+        if (self.animal_x_center - self.anterior[0] < 0):
+            theta = np.arctan2(dorsal[0] - cx, dorsal[1] - cy)
+            s = np.linspace(theta, theta - np.sign(dvec[1])*np.pi, 400)
+
+        elif (self.animal_x_center - self.anterior[1] < 0):
+            theta = np.arctan2(theta, theta - np.sign(dvec[1])*np.pi, 400)
+            s = np.linspace(theta, theta - np.sign(dvec[1])*mp.pi, 400)
+
+        x = cy + int(diameter/2)*np.cos(s)
+        y = cx + int(diameter/2)*np.sin(s)
+
+        return np.array([x, y]).T
