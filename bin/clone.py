@@ -13,6 +13,7 @@ from skimage.segmentation import active_contour
 import pickle
 import re
 import utils
+from collections import default_dict
 
 class Clone(object):
     
@@ -99,7 +100,7 @@ class Clone(object):
         self.eye_x_center = None
         self.eye_y_center = None
         self.eye_major = None
-        self.eye_minor = None
+	self.eye_minor = None
         self.eye_theta = None
         
         # these are directional vectors of anatomical direction
@@ -665,9 +666,7 @@ class Clone(object):
 
         return idx_x, idx_y
 
-    def initialize_snake(self, im, segim):
-
-        im = self.sanitize(im)
+    def initialize_snake(self):
 
         head = self.head
         tail = self.tail
@@ -688,4 +687,4 @@ class Clone(object):
         x = cy + int(diameter/2)*np.cos(s)
         y = cx + int(diameter/2)*np.sin(s)
 
-        return np.array([x, y]).T
+        self.pedestal_snake =  np.array([x, y]).T

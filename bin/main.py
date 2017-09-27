@@ -6,6 +6,7 @@ import os
 import pandas
 import numpy as np
 import cv2
+from collections import default_dict
 from openpyxl import load_workbook 
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
