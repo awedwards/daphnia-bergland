@@ -674,14 +674,14 @@ class Clone(object):
         dp = (self.dorsal[0] + mp[0])/2, (self.dorsal[1] + mp[1])/2
         dvec = self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]
         diameter = self.dist(self.head, dp)
-        cx, cy = (self.head[0] + dorsal[0])/2, (self.head[1] + dorsal[1])/2
+        cx, cy = (self.head[0] + self.dorsal[0])/2, (self.head[1] + self.dorsal[1])/2
 
         if (self.animal_x_center - self.anterior[0] < 0):
-            theta = np.arctan2(dorsal[0] - cx, dorsal[1] - cy)
+            theta = np.arctan2(self.dorsal[0] - cx, self.dorsal[1] - cy)
             s = np.linspace(theta, theta - np.sign(dvec[1])*np.pi, 400)
 
-        elif (self.animal_x_center - self.anterior[1] < 0):
-            theta = np.arctan2(theta, theta - np.sign(dvec[1])*np.pi, 400)
+        elif (self.animal_x_center - self.anterior[0] > 0):
+            theta = np.arctan2(self.head[0] - cx, self.head[1] - cy)
             s = np.linspace(theta, theta - np.sign(dvec[1])*mp.pi, 400)
 
         x = cy + int(diameter/2)*np.cos(s)
