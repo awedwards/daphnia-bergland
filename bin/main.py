@@ -13,7 +13,7 @@ DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation"
 CLOSESEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation_close"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
-INDUCTIONMEDATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
+INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 ext = '.bmp'
 
 doAreaCalc = True
@@ -25,28 +25,28 @@ doOrientation = True
 doPedestalScore = False
 
 files = os.listdir(DATADIR)
-clones = dict()
 
 print "Loading clone data\n"
-build_clonedata = False 
 
-clones = utils.recursivedict()
+build_clonedata = False 
 
 try:
     if build_clonedata: raise(IOError)
     clones = utils.load_pkl("clonedata", ANALYSISDIR)
 except IOError:
     
-    print "Clone data could not be located. Building from scratch:\n"
+    print "Clone data could not be located. Building from scratch:\n"`:w
+
+    clones = utils.recursivedict()
     
     print "Loading induction data\n"
     inductiondates = dict()
-    inductionfiles = os.listdir(INDUCTIONMEDATADIR)
+    inductionfiles = os.listdir(INDUCTIONMETADATADIR)
 
     for i in inductionfiles:
         if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
             print "Loading " + i
-            wb = load_workbook(os.path.join(INDUCTIONMEDATADIR,i),data_only=True)
+            wb = load_workbook(os.path.join(INDUCTIONMETADATADIR,i),data_only=True)
             data = wb["Inductions"].values
             cols = next(data)[0:]
             data = list(data)

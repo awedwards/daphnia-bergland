@@ -682,7 +682,7 @@ class Clone(object):
 
         elif (self.animal_x_center - self.anterior[0] > 0):
             theta = np.arctan2(self.head[0] - cx, self.head[1] - cy)
-            s = np.linspace(theta, theta - np.sign(dvec[1])*mp.pi, 400)
+            s = np.linspace(theta, theta - np.sign(dvec[1])*np.pi, 400)
 
         x = cy + int(diameter/2)*np.cos(s)
         y = cx + int(diameter/2)*np.sin(s)
