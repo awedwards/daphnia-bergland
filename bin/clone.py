@@ -529,22 +529,28 @@ class Clone(object):
             self.dorsal = self.ventral
             self.ventral = tmp
 
-    def find_eye_dorsal(self,im):
+    def find_eye_vertex(self, im, vertex):
 
         # finds dorsal point of the eye
         
+        if vertex not in ["dorsal", "ventral", "anterior", "posterior"]:
+            raise( "Choose different (and real) direction")
+
         try:
             if im.shape[2] == 4 or im.shape[2] == 3:
                 im = im[:,:,self.eye_channel]
+
         except IndexError:
             pass
 
-        if self.dorsal == None: self.get_anatomical_directions()
-        
-        if not self.dorsal == None:
+        body_vertex = getattr(self, vertex)
 
-            d_y = self.dorsal[1] - self.animal_y_center
-            d_x = self.dorsal[0] - self.animal_x_center
+        if body_vertex == None:
+            self.get_anatomical_directions()
+        else:
+
+            d_y = body_vertex[1] - self.animal_y_center
+            d_x = body_vertex[0] - self.animal_x_center
 
             # draw line from eye center with same slope as dorsal axis
 
@@ -553,7 +559,7 @@ class Clone(object):
             y2 = self.eye_y_center + d_y
             x2 = self.eye_x_center + d_x
             
-            self.eye_dorsal = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+            setattr(self, "eye_" + vertex) = self.find_zero_crossing(im,(x1,y1),(x2,y2))
     
     def find_head(self, im, segim):
 
@@ -673,15 +679,15 @@ class Clone(object):
         mp = (head[0] + tail[0])/2, (head[1] + tail[1])/2
         dp = (self.dorsal[0] + mp[0])/2, (self.dorsal[1] + mp[1])/2
         dvec = self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]
-        diameter = self.dist(self.head, dp)
-        cx, cy = (self.head[0] + dp[0])/2, (self.head[1] + dp[1])/2
+        diameter = self.dist(head, dp)
+        cx, cy = (head[0] + dp[0])/2, (head[1] + dp[1])/2
 
         if (self.animal_x_center - self.anterior[0] < 0):
             theta = np.arctan2(dp[0] - cx, dp[1] - cy)
             s = np.linspace(theta, theta - np.sign(dvec[1])*np.pi, 400)
 
         elif (self.animal_x_center - self.anterior[0] > 0):
-            theta = np.arctan2(self.head[0] - cx, self.head[1] - cy)
+            theta = np.arctan2(head[0] - cx, head[1] - cy)
             s = np.linspace(theta, theta - np.sign(dvec[1])*np.pi, 400)
 
         x = cy + int(diameter/2)*np.cos(s)
