@@ -356,6 +356,7 @@ class Clone(object):
             freqs = np.fft.fftfreq(n)
             idx = np.argmax(np.abs(fourier))
             freq = freqs[idx]
+
             #this is so that really noisy frequencies don't get captured
             try:
                 if np.abs(1/freq) < 50:
@@ -483,11 +484,13 @@ class Clone(object):
             im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         
         # before merging channels, find eye landmarks:
-        self.find_eye_dorsal(segim)
+        self.find_eye_vertex(segim, "dorsal")
+        self.find_eye_vertex(segim, "anterior")
+        self.head = self.eye_anterior
         # this method smooths animal pixels and finds landmarks
 
         self.find_tail(im)
-        self.find_head(im,segim)
+        #self.find_head(im,segim)
         #except TypeError as e:
         #    print "Error in finding body landmarks"
         #    pass
