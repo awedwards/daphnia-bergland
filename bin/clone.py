@@ -562,7 +562,7 @@ class Clone(object):
             y2 = self.eye_y_center + d_y
             x2 = self.eye_x_center + d_x
             
-            setattr(self, "eye_" + vertex) = self.find_zero_crossing(im,(x1,y1),(x2,y2))
+            setattr(self, "eye_" + vertex,  self.find_zero_crossing(im,(x1,y1),(x2,y2)) )
     
     def find_head(self, im, segim):
 
