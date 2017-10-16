@@ -13,7 +13,7 @@ from skimage.segmentation import active_contour
 import pickle
 import re
 import utils
-from collections import default_dict
+from collections import defaultdict
 
 class Clone(object):
     
@@ -99,7 +99,7 @@ class Clone(object):
         
         self.eye_x_center = None
         self.eye_y_center = None
-        self.eye_major = None
+	self.eye_major = None
 	self.eye_minor = None
         self.eye_theta = None
         
