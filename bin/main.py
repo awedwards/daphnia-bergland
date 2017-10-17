@@ -6,8 +6,9 @@ import os
 import pandas as pd
 import numpy as np
 import cv2
-from collections import default_dict
+from collections import defaultdict
 from openpyxl import load_workbook 
+from datetime import datetime as dt
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation"
@@ -31,14 +32,14 @@ files = os.listdir(DATADIR)
 
 print "Loading clone data\n"
 
-build_clonedata = False 
+build_clonedata = True 
 
 try:
     if build_clonedata: raise(IOError)
     clones = utils.load_pkl("clonedata", ANALYSISDIR)
 except IOError:
     
-    print "Clone data could not be located. Building from scratch:\n"`:w
+    print "Clone data could not be located. Building from scratch:\n"
 
     clones = utils.recursivedict()
     
@@ -56,9 +57,10 @@ except IOError:
 	    df = pd.DataFrame(data, columns=cols)
             df = df[df.ID_Number.notnull()] 
             for j,row in df.iterrows():
-                if not row['ID_Number'] == "NaT":
-                    inductiondates[row['ID_Number']] = row['Induction_Date']
- 
+                if not str(row['ID_Number']) == "NaT":
+                    time = pd.Timestamp(row['Induction_Date'])
+                    inductiondates[str(row['ID_Number'])] = time.strftime("%Y%m%dT%H%M%S")
+    
     # load manual_scales
     manual_scales = dict()
     with open(os.path.join(ANALYSISDIR, "manual_scales.txt"),'rb') as f:
@@ -72,7 +74,9 @@ except IOError:
         
         if f.startswith("._"):
             continue
-        elif f.endswith(ext) and (f.startswith("full_") or f.startswith("close_")):
+        #elif f.endswith(ext) and (f.startswith("full_") or f.startswith("close_")):
+        elif f.endswith(ext) and f.startswith("full_") and os.path.isfile(os.path.join(SEGDATADIR, f)):
+            
             
             print "Adding " + f + " to clone list and calculating scale"
             imagetype,barcode,clone_id,treatment,replicate,rig,datetime = utils.parse(f)
@@ -80,16 +84,16 @@ except IOError:
             if barcode is not None:
           
                 if barcode in inductiondates.iterkeys():
-                    induced = inductiondates[barcode]
+                    induction = inductiondates[barcode]
                 else:
-                    induced = None
+                    induction = None
                 
                 if imagetype == "full":
                     segdir = SEGDATADIR
                 elif imagetype == "close":
                     segdir = CLOSESEGDATADIR
 
-                clones[barcode][datetime][imagetype] = Clone(imagetype,barcode,clone_id,treatment,replicate,rig,datetime,induced,DATADIR,segdir)
+                clones[barcode][datetime][imagetype] = Clone(imagetype,barcode,clone_id,treatment,replicate,rig,datetime,induction,DATADIR,segdir)
                 if imagetype == "close":
                     clones[barcode][datetime][imagetype].pixel_to_mm = 1105.33
                 try:
@@ -98,8 +102,6 @@ except IOError:
                     pass
 
     utils.save_pkl(clones, ANALYSISDIR, "clonedata")
-
-so_far = 0
 
 with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
 
@@ -115,7 +117,7 @@ with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
     "datetime",
     "inductiondate",
     "animal_area",
-    "animal_length"
+    "animal_length",
     "pixel_to_mm",
     "animal_x_center",
     "animal_y_center",
@@ -134,7 +136,7 @@ with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
     "head",
     "tail"]
     
-    f.write( ",".join(cols) + "/n")
+    f.write( ",".join(cols) + "\n")
 
     for barcode in clones.iterkeys():
         for dt in clones[barcode].iterkeys():
@@ -155,7 +157,7 @@ with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
 		if doOrientation:
 		    print "Finding animal orientation."
 		    clone.get_anatomical_directions()
-		if doBodyLandmarks and imtype == "full":
+		if doBodyLandmarks:
 		    print "Finding body landmarks."
 		    if clone.tail is None:
 			im = cv2.imread(clone.filepath)
@@ -167,15 +169,18 @@ with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
 		#    clone.initialize_snake()
 	    except AttributeError as e:
 		print str(e)
-		f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")
+		#f.write("Error analyzing " + clone.filebase + " because: " + str(e) + "\n")
 		success = False
             
 	    if success:
 	        tmpdata = list()
-	        for c in cols:
-		    tmpdata.append( getattr(clone, c) )
+	        
+                for c in cols:
+                    val = str(getattr(clone, c))
+                    
+                    if val is not None:
+		        tmpdata.append( val )
+                    else:
+                        tmpdata.append("")
 	    
-	        f.write( ",".join(tmpdata) + "/n")
-	    
-	    if so_far%100==0:
-		print "Saving " + str(so_far) + " out of many"
+	        f.write( ",".join(tmpdata) + "\n")
