@@ -48,17 +48,17 @@ class Clone(object):
 
         self.barcode = barcode
         self.treatment = treatment
-        self.convert_treatment()
         self.replicate = replicate
         self.rig = rig
         self.datetime = datetime
         self.inductiondate = induction
          
-        delim = "_"
         ext = ".bmp"
+        delim = "_"
+        self.filebase = delim.join((str(barcode),str(cloneid),str(treatment),str(replicate),str(rig),str(datetime))) + ext
 
-        self.filebase = delim.join((barcode,cloneid,treatment,replicate,rig,datetime)) + ext
-
+        self.convert_treatment()
+        
         if os.path.isfile(os.path.join(datadir, imtype + "_" + self.filebase)):
             self.filepath = os.path.join(datadir, imtype + "_" + self.filebase)
         
@@ -89,7 +89,7 @@ class Clone(object):
             try:
                 self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
             except Exception as e:
-                print "Could not calculate pixel image because of the following error: " + str(e)
+                print "Could not calculate pixel-to-mm conversion because of the following error: " + str(e)
 
         self.animal_x_center = None
         self.animal_y_center = None

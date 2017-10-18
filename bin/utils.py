@@ -1,8 +1,11 @@
+from clone import Clone
 import pickle
 import os
 import numpy as np
+import pandas as pd
 import re
 from collections import defaultdict
+from openpyxl import load_workbook 
 
 def save_pkl(obj, path, name):
     with open(os.path.join(path, name) + '.pkl','wb') as f:
@@ -60,3 +63,113 @@ def recursivedict():
     # initializes a default dictionary with an arbitrary number of dimensions
 
     return defaultdict(recursivedict)
+
+def load_induction_data(path):
+    
+    print "Loading induction data\n"
+    inductiondates = dict()
+    inductionfiles = os.listdir(path)
+
+    for i in inductionfiles:
+        if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
+            print "Loading " + i
+            wb = load_workbook(os.path.join(path,i),data_only=True)
+            data = wb["Inductions"].values
+            cols = next(data)[0:]
+            data = list(data)
+	    df = pd.DataFrame(data, columns=cols)
+            df = df[df.ID_Number.notnull()] 
+            for j,row in df.iterrows():
+                if not str(row['ID_Number']) == "NaT":
+                    time = pd.Timestamp(row['Induction_Date'])
+                    inductiondates[str(row['ID_Number'])] = time.strftime("%Y%m%dT%H%M%S")
+    
+    return inductiondates
+
+def load_manual_scales(path):
+
+     # load manual_scales
+    manual_scales = dict()
+    with open(os.path.join(path, "manual_scales.txt"),'rb') as f:
+        line = f.readline()
+        while line:
+            filename,conversion = line.strip().split(',')
+            manual_scales[filename] = conversion
+            line = f.readline()
+    
+    return manual_scales
+
+def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bmp"):
+    
+    # input: paths to data, segmented data and metadata files
+
+    clones = recursivedict()
+   
+    inductiondates = load_induction_data(inductiondatadir)
+    manual_scales = load_manual_scales(analysisdir)
+
+    files = os.listdir(datadir)
+    
+    for f in files:
+        
+        if f.startswith("._"):
+            continue
+        
+        elif f.endswith(ext) and f.startswith("full_") and os.path.isfile(os.path.join(segdatadir, f)):
+                 
+            print "Adding " + f + " to clone list and calculating scale"
+            imagetype,barcode,clone_id,treatment,replicate,rig,datetime = parse(f)
+            
+            if barcode is not None:
+          
+                if barcode in inductiondates.iterkeys():
+                    induction = inductiondates[barcode]
+                else:
+                    induction = None
+                
+                if imagetype == "full":
+                    segdir = segdatadir
+                #elif imagetype == "close":
+                #    segdir = CLOSESEGDATADIR
+
+                clones[barcode][datetime][imagetype] = Clone(imagetype,barcode,clone_id,treatment,replicate,rig,datetime,induction,datadir,segdir)
+                
+                if imagetype == "close":
+                    clones[barcode][datetime][imagetype].pixel_to_mm = 1105.33
+                try:
+                    clones[barcode][datetime][imagetype].pixel_to_mm = manual_scales[clones[barcode].micro_filepath]
+                except (KeyError, AttributeError):
+                    pass
+    
+    return clones
+
+def csv_to_df(csvfile):
+    
+    try:
+        return pd.read_csv(csvfile, sep="\t")
+    except Exception as e:
+        print "Could not load csv because: " + str(e)
+        return
+
+def df_to_clonelist(df, datadir = None, segdir = None):
+
+    clones = recursivedict()
+
+    for index, row in df.iterrows():
+        clone = Clone( 'full', 
+                row['barcode'],
+                row['cloneid'],
+                row['treatment'],
+                row['replicate'],
+                row['rig'],
+                row['datetime'],
+                row['inductiondate'],
+                datadir,
+                segdir)
+
+        for k in row.keys():
+            setattr(clone, k, row[k])
+        
+        clones[row['barcode']][row['datetime']]['full'] = clone
+    
+    return clones

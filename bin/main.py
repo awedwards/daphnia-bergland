@@ -1,23 +1,23 @@
 from __future__ import division
-from clone import Clone
 import utils
+from clone import Clone
 import plot
 import os
 import pandas as pd
 import numpy as np
 import cv2
 from collections import defaultdict
-from openpyxl import load_workbook 
 from datetime import datetime as dt
 
-DATADIR = "/mnt/spicy_4/daphnia/data"
+DATADIR = "/mnt/spicy_4/daphnia/dummy"
 SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation"
 CLOSESEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation_close"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
 INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 ext = '.bmp'
+datafile = os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt")
 
-analysis = True
+analysis = False
 
 if analysis == True:
   doAreaCalc = True
@@ -27,6 +27,14 @@ if analysis == True:
   doLength = True
   doOrientation = True
   doPedestalScore = True
+else:
+  doAreaCalc = False
+  doAnimalEllipseFit = False
+  doEyeEllipseFit = False
+  doBodyLandmarks = False
+  doLength = False
+  doOrientation = False
+  doPedestalScore = False
 
 files = os.listdir(DATADIR)
 
@@ -36,73 +44,14 @@ build_clonedata = True
 
 try:
     if build_clonedata: raise(IOError)
-    clones = utils.load_pkl("clonedata", ANALYSISDIR)
+
+    df = utils.csv_to_df(datafile)
+    clones = utils.df_to_clonelist(df, datadir=DATADIR, segdir=SEGDATADIR)
+
 except IOError:
     
-    print "Clone data could not be located. Building from scratch:\n"
-
-    clones = utils.recursivedict()
-    
-    print "Loading induction data\n"
-    inductiondates = dict()
-    inductionfiles = os.listdir(INDUCTIONMETADATADIR)
-
-    for i in inductionfiles:
-        if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
-            print "Loading " + i
-            wb = load_workbook(os.path.join(INDUCTIONMETADATADIR,i),data_only=True)
-            data = wb["Inductions"].values
-            cols = next(data)[0:]
-            data = list(data)
-	    df = pd.DataFrame(data, columns=cols)
-            df = df[df.ID_Number.notnull()] 
-            for j,row in df.iterrows():
-                if not str(row['ID_Number']) == "NaT":
-                    time = pd.Timestamp(row['Induction_Date'])
-                    inductiondates[str(row['ID_Number'])] = time.strftime("%Y%m%dT%H%M%S")
-    
-    # load manual_scales
-    manual_scales = dict()
-    with open(os.path.join(ANALYSISDIR, "manual_scales.txt"),'rb') as f:
-        line = f.readline()
-        while line:
-            filename,conversion = line.strip().split(',')
-            manual_scales[filename] = conversion
-            line = f.readline()
-
-    for f in files:
-        
-        if f.startswith("._"):
-            continue
-        #elif f.endswith(ext) and (f.startswith("full_") or f.startswith("close_")):
-        elif f.endswith(ext) and f.startswith("full_") and os.path.isfile(os.path.join(SEGDATADIR, f)):
-            
-            
-            print "Adding " + f + " to clone list and calculating scale"
-            imagetype,barcode,clone_id,treatment,replicate,rig,datetime = utils.parse(f)
-            
-            if barcode is not None:
-          
-                if barcode in inductiondates.iterkeys():
-                    induction = inductiondates[barcode]
-                else:
-                    induction = None
-                
-                if imagetype == "full":
-                    segdir = SEGDATADIR
-                elif imagetype == "close":
-                    segdir = CLOSESEGDATADIR
-
-                clones[barcode][datetime][imagetype] = Clone(imagetype,barcode,clone_id,treatment,replicate,rig,datetime,induction,DATADIR,segdir)
-                if imagetype == "close":
-                    clones[barcode][datetime][imagetype].pixel_to_mm = 1105.33
-                try:
-                    clones[barcode][datetime][imagetype].pixel_to_mm = manual_scales[clones[barcode].micro_filepath]
-                except (KeyError, AttributeError):
-                    pass
-
-    utils.save_pkl(clones, ANALYSISDIR, "clonedata")
-
+    clones = utils.build_clonelist(DATADIR, SEGDATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
+"""    
 with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
 
     cols = ["filebase",
@@ -136,7 +85,7 @@ with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
     "head",
     "tail"]
     
-    f.write( ",".join(cols) + "\n")
+    f.write( "\t".join(cols) + "\n")
 
     for barcode in clones.iterkeys():
         for dt in clones[barcode].iterkeys():
@@ -183,4 +132,5 @@ with open(os.path.join(ANALYSISDIR, "daphnia_analysis_results.txt"), "wb") as f:
                     else:
                         tmpdata.append("")
 	    
-	        f.write( ",".join(tmpdata) + "\n")
+	        f.write( "\t".join(tmpdata) + "\n")
+"""
