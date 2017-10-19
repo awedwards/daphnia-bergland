@@ -1,3 +1,4 @@
+from __future__ import division
 from clone import Clone
 import pickle
 import os
@@ -6,6 +7,8 @@ import pandas as pd
 import re
 from collections import defaultdict
 from openpyxl import load_workbook 
+from ast import literal_eval
+import cv2
 
 def save_pkl(obj, path, name):
     with open(os.path.join(path, name) + '.pkl','wb') as f:
@@ -168,8 +171,112 @@ def df_to_clonelist(df, datadir = None, segdir = None):
                 segdir)
 
         for k in row.keys():
-            setattr(clone, k, row[k])
-        
+            try:
+                setattr(clone, k, literal_eval(row[k]))
+                print k, literal_eval(row[k])
+            except (ValueError, SyntaxError):
+                setattr(clone, k, row[k])
+
         clones[row['barcode']][row['datetime']]['full'] = clone
     
     return clones
+
+def save_clonelist(clones, path, outfile):
+    
+    cols = ["filebase",
+        "barcode",
+        "cloneid",
+        "pond",
+        "id",
+        "season",
+        "treatment",
+        "replicate",
+        "rig",
+        "datetime",
+        "inductiondate",
+        "animal_area",
+        "animal_length",
+        "pixel_to_mm",
+        "animal_x_center",
+        "animal_y_center",
+        "animal_major",
+        "animal_minor",
+        "animal_theta",
+        "eye_x_center",
+        "eye_y_center",
+        "eye_major",
+        "eye_minor",
+        "eye_theta",
+        "anterior",
+        "posterior",
+        "dorsal",
+        "ventral",
+        "head",
+        "tail"]
+    
+    with open(os.path.join(path, outfile), "wb+"):
+        f.write( "\t".join(cols) + "\n")
+        
+    for barcode in clones.iterkeys():
+        for dt in clones[barcode].iterkeys():
+            clone = clones[barcode][dt]["full"]
+            write_clone(clone, cols, path, outfile)
+    
+def write_clone(clone, cols, path, outfile):
+
+    try:        
+        with open(os.path.join(path, outfile), "ab+") as f:
+
+            tmpdata = list()
+                    
+            for c in cols:
+            
+                val = str(getattr(clone, c))
+                
+                if val is not None:
+                    tmpdata.append( val )
+                else:
+                    tmpdata.append("")
+        
+            f.write( "\t".join(tmpdata) + "\n")
+
+    except IOError:
+        print "Can't write clone data to file"
+
+def analyze_clone(clone, flags):
+
+    try:
+        split = clone.split_channels( cv2.imread( clone.seg_filepath ) )
+
+        if "doAreaCalc" in flags:
+            print "Calculating area."
+            clone.calculate_area(split)
+
+        if "doAnimalEllipseFit" in flags:
+            print "Fitting ellipse to body."
+            clone.fit_animal_ellipse(split)
+
+        if "doEyeEllipseFit" in flags:
+            print "Fitting ellipse to eye."
+            clone.fit_eye_ellipse(split)
+
+        if "doOrientation" in flags:
+            print "Finding animal orientation."
+            clone.get_anatomical_directions()
+
+        if "doBodyLandmarks" in flags:
+            print "Finding body landmarks."
+            im = cv2.imread(clone.filepath)
+            clone.find_body_landmarks(im, split)
+
+        if "doLength" in flags:
+            print "Calculating length"
+            clone.calculate_length()
+
+        if "doPedestalScore" in flags:
+            print "Finding pedestal"
+            clone.initialize_snake()
+    
+    except AttributeError:
+
+        print "Error during analysis of " + clone.filepath
