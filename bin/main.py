@@ -17,7 +17,7 @@ analysis = True
 flgs = []
 
 if analysis == True:
-
+    flgs.append("getPxtomm")
     flgs.append("doAreaCalc")
     flgs.append("doAnimalEllipseFit")
     flgs.append("doEyeEllipseFit")
@@ -30,12 +30,13 @@ files = os.listdir(DATADIR)
 
 print "Loading clone data\n"
 
-build_clonedata = True
+build_clonedata = False
 
 try:
-    if build_clonedata: raise(IOError)
-    df = utils.csv_to_df(datafile)
-    clones = utils.df_to_clonelist(df, datadir=DATADIR, segdir=SEGDATADIR)
+    df = utils.csv_to_df(os.path.join(ANALYSISDIR, outfile))
+    loaded = utils.df_to_clonelist(df, datadir=DATADIR, segdir=SEGDATADIR)
+    clones = utils.build_clonelist(DATADIR, SEGDATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
+    clones = utils.update_clone_list(clones, loaded)
 
 except (AttributeError, IOError): 
     clones = utils.build_clonelist(DATADIR, SEGDATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
@@ -71,14 +72,21 @@ cols = ["filebase",
         "head",
         "tail"]
 
-with open(os.path.join(ANALYSISDIR, outfile), "wb+") as f:
-    f.write( "\t".join(cols) + "\n")
+try:
+    if os.stat(os.path.join(ANALYSISDIR, outfile)) == 0:
+        raise IOError
+except IOError:
+    with open(os.path.join(ANALYSISDIR, outfile), "wb+") as f:
+        f.write( "\t".join(cols) + "\n")
      
 if analysis:
     for barcode in clones.keys():
         for dt in clones[barcode].keys():
             clone = clones[barcode][dt]["full"]
-            utils.analyze_clone(clone, flgs)
-            utils.write_clone(clone, cols, ANALYSISDIR, outfile)
+            if not clone.analyzed:
+                print "Analyzing " + clone.filebase
+                utils.analyze_clone(clone, flgs)
+                utils.write_clone(clone, cols, ANALYSISDIR, outfile)
+                clone.analyzed = True
 
-#utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt")
+#utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)

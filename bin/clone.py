@@ -85,11 +85,11 @@ class Clone(object):
         self.snake = None
         self.pixel_to_mm = None
         
-        if imtype == "full":
-            try:
-                self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
-            except Exception as e:
-                print "Could not calculate pixel-to-mm conversion because of the following error: " + str(e)
+        #if imtype == "full":
+        #    try:
+        #        self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
+        #    except Exception as e:
+        #        print "Could not calculate pixel-to-mm conversion because of the following error: " + str(e)
 
         self.animal_x_center = None
         self.animal_y_center = None
@@ -117,6 +117,8 @@ class Clone(object):
         self.tail = None
         self.dorsal_point = None
     
+        self.analyzed = False
+
     def convert_treatment(self):
         
         if self.treatment is not None:

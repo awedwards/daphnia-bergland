@@ -81,12 +81,13 @@ def load_induction_data(path):
             cols = next(data)[0:]
             data = list(data)
 	    df = pd.DataFrame(data, columns=cols)
-            df = df[df.ID_Number.notnull()] 
+            df = df[df.ID_Number.notnull()]
+
             for j,row in df.iterrows():
                 if not str(row['ID_Number']) == "NaT":
                     time = pd.Timestamp(row['Induction_Date'])
-                    inductiondates[str(row['ID_Number'])] = time.strftime("%Y%m%dT%H%M%S")
-    
+                    inductiondates[str(int(row['ID_Number']))] = time.strftime("%Y%m%dT%H%M%S")
+
     return inductiondates
 
 def load_manual_scales(path):
@@ -120,13 +121,13 @@ def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bm
         
         elif f.endswith(ext) and f.startswith("full_") and os.path.isfile(os.path.join(segdatadir, f)):
                  
-            print "Adding " + f + " to clone list and calculating scale"
+            print "Adding " + f + " to clone list"
             imagetype,barcode,clone_id,treatment,replicate,rig,datetime = parse(f)
             
             if barcode is not None:
           
-                if barcode in inductiondates.iterkeys():
-                    induction = inductiondates[barcode]
+                if str(barcode) in inductiondates.iterkeys():
+                    induction = inductiondates[str(barcode)]
                 else:
                     induction = None
                 
@@ -173,7 +174,6 @@ def df_to_clonelist(df, datadir = None, segdir = None):
         for k in row.keys():
             try:
                 setattr(clone, k, literal_eval(row[k]))
-                print k, literal_eval(row[k])
             except (ValueError, SyntaxError):
                 setattr(clone, k, row[k])
 
@@ -181,39 +181,17 @@ def df_to_clonelist(df, datadir = None, segdir = None):
     
     return clones
 
-def save_clonelist(clones, path, outfile):
-    
-    cols = ["filebase",
-        "barcode",
-        "cloneid",
-        "pond",
-        "id",
-        "season",
-        "treatment",
-        "replicate",
-        "rig",
-        "datetime",
-        "inductiondate",
-        "animal_area",
-        "animal_length",
-        "pixel_to_mm",
-        "animal_x_center",
-        "animal_y_center",
-        "animal_major",
-        "animal_minor",
-        "animal_theta",
-        "eye_x_center",
-        "eye_y_center",
-        "eye_major",
-        "eye_minor",
-        "eye_theta",
-        "anterior",
-        "posterior",
-        "dorsal",
-        "ventral",
-        "head",
-        "tail"]
-    
+def update_clone_list(clones, loadedclones):
+
+     for barcode in loadedclones.iterkeys():
+        for dt in loadedclones[barcode].iterkeys():
+            clones[barcode][dt]['full'] = loadedclones[barcode][dt]['full']
+            clones[barcode][dt]['full'].analyzed = True
+     
+     return clones
+
+def save_clonelist(clones, path, outfile, cols):
+   
     with open(os.path.join(path, outfile), "wb+"):
         f.write( "\t".join(cols) + "\n")
         
@@ -247,6 +225,14 @@ def analyze_clone(clone, flags):
 
     try:
         split = clone.split_channels( cv2.imread( clone.seg_filepath ) )
+        
+        if "getPxtomm" in flags:
+            print "Extracting pixel-to-mm conversion factor"
+            try:
+                micro = cv2.imread(clone.micro_filepath)
+                clone.pixel_to_mm = clone.calc_pixel_to_mm(micro)
+            except Exception as e:
+                print "Could not extract because: " + str(e)
 
         if "doAreaCalc" in flags:
             print "Calculating area."
