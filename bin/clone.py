@@ -25,18 +25,18 @@ class Clone(object):
         self.id = None
         self.pond, self.id = utils.parsePond(self.cloneid)
         
-        if self.cloneid in ["C14","LD33","Chard","D8.4A","D8.6A","D8.7A","Cyril"]:
+        if self.cloneid in ["C14","LD33","Chard","D8.4A","D8.6A", "D 8.6A","D8.7A","Cyril"]:
             self.season = "misc"
         elif self.pond == "D8":
             if "AD" in self.cloneid:
                 self.season = "spring_2016"
             else: self.season = "spring_2017"
-        elif self.pond == "AW":
+        elif "AW" in self.pond:
             self.season = "spring_2016"
         elif self.pond == "D10":
             if "AD" in self.cloneid:
                 self.season = "spring_2016"
-            else: self.season = "fall_2017"
+            else: self.season = "fall_2016"
         elif self.pond == "DBunk":
             self.season = "spring_2017"
         else:
@@ -77,6 +77,8 @@ class Clone(object):
 
         self.total_animal_pixels = None
         self.animal_area = None
+        self.total_eye_pixels = None
+        self.eye_area = None
         self.animal_length = None
         self.pedestal_size = None
         self.pedestal_height = None
@@ -392,18 +394,19 @@ class Clone(object):
         
         return np.stack(arrays,axis=2)
 
-    def calculate_area(self,im):
+    def calculate_area(self, im, part):
         
         # input:  segmentation image
         # merge animal and eye channels 
         
-        try:
-            
-            animal = self.sanitize(im)
-
+        if part == "animal":
+            im = self.sanitize(im)
+        elif part == "eye":
+            im = im[:, :, self.eye_channel]
+        try:     
             # count total number of pixels and divide by conversion factor
-            self.total_animal_pixels = len(np.flatnonzero(animal))
-            self.animal_area = self.total_animal_pixels/(self.pixel_to_mm**2) 
+            setattr(self, "total_" + part + "_pixels", len(np.flatnonzero(im)))
+            setattr(self, part + "_area", getattr(self, "total_" + part + "_pixels")/(self.pixel_to_mm**2))
         
         except Exception as e:
             print "Error while calculating area: " + str(e)
