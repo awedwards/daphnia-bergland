@@ -4,7 +4,7 @@ from clone import Clone
 import os
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
-SEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation"
+SEGDATADIR = "/mnt/spicy_4/daphnia/02_simplesegmentation"
 CLOSESEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation_close"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
 INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
@@ -26,8 +26,6 @@ if analysis == True:
     flgs.append("doOrientation")
     #flgs.append("doPedestalScore")
 
-files = os.listdir(DATADIR)
-
 print "Loading clone data\n"
 
 build_clonedata = False
@@ -37,8 +35,10 @@ try:
     loaded = utils.df_to_clonelist(df, datadir=DATADIR, segdir=SEGDATADIR)
     clones = utils.build_clonelist(DATADIR, SEGDATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
     clones = utils.update_clone_list(clones, loaded)
+    print "Successfully updated clone list"
 
-except (AttributeError, IOError): 
+except (AttributeError, IOError):
+    
     clones = utils.build_clonelist(DATADIR, SEGDATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
 
 cols = ["filebase",
@@ -52,7 +52,10 @@ cols = ["filebase",
         "rig",
         "datetime",
         "inductiondate",
+        "total_animal_pixels",
         "animal_area",
+        "total_eye_pixels",
+        "eye_area",
         "animal_length",
         "pixel_to_mm",
         "animal_x_center",
@@ -73,9 +76,10 @@ cols = ["filebase",
         "tail"]
 
 try:
-    if os.stat(os.path.join(ANALYSISDIR, outfile)) == 0:
+    if os.stat(os.path.join(ANALYSISDIR, outfile)).st_size == 0:
         raise IOError
 except IOError:
+    print "Starting new output file"
     with open(os.path.join(ANALYSISDIR, outfile), "wb+") as f:
         f.write( "\t".join(cols) + "\n")
      

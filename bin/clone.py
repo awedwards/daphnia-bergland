@@ -386,7 +386,7 @@ class Clone(object):
         channel_ids = np.unique(im)
         nchannels = len(channel_ids)
         
-        arrays = list()
+        arrays = []
         for channel in channel_ids:
             tmp = np.zeros((w,h))
             tmp[np.where(im==channel)] = 1
@@ -602,8 +602,8 @@ class Clone(object):
             z = scipy.ndimage.map_coordinates(mask, np.vstack((x,y)), mode='nearest')
             df = pd.DataFrame(z)
 
-            hx = list()
-            hy = list()
+            hx = []
+            hy = []
 
             found = False
 

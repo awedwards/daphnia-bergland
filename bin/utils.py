@@ -93,7 +93,7 @@ def load_induction_data(path):
 def load_manual_scales(path):
 
      # load manual_scales
-    manual_scales = dict()
+    manual_scales = {}
     with open(os.path.join(path, "manual_scales.txt"),'rb') as f:
         line = f.readline()
         while line:
@@ -177,7 +177,7 @@ def df_to_clonelist(df, datadir = None, segdir = None):
             except (ValueError, SyntaxError):
                 setattr(clone, k, row[k])
 
-        clones[row['barcode']][row['datetime']]['full'] = clone
+        clones[str(row['barcode'])][str(row['datetime'])]['full'] = clone
     
     return clones
 
@@ -187,7 +187,6 @@ def update_clone_list(clones, loadedclones):
         for dt in loadedclones[barcode].iterkeys():
             clones[barcode][dt]['full'] = loadedclones[barcode][dt]['full']
             clones[barcode][dt]['full'].analyzed = True
-     
      return clones
 
 def save_clonelist(clones, path, outfile, cols):
@@ -205,7 +204,7 @@ def write_clone(clone, cols, path, outfile):
     try:        
         with open(os.path.join(path, outfile), "ab+") as f:
 
-            tmpdata = list()
+            tmpdata = []
                     
             for c in cols:
             
@@ -236,8 +235,8 @@ def analyze_clone(clone, flags):
 
         if "doAreaCalc" in flags:
             print "Calculating area."
-            clone.calculate_area(split)
-
+            clone.calculate_area(split, "animal")
+            clone.calculate_area(split, "eye")
         if "doAnimalEllipseFit" in flags:
             print "Fitting ellipse to body."
             clone.fit_animal_ellipse(split)
