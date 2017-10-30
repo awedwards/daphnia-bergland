@@ -25,18 +25,18 @@ class Clone(object):
         self.id = None
         self.pond, self.id = utils.parsePond(self.cloneid)
         
-        if self.cloneid in ["C14","LD33","Chard","D8.4A","D8.6A", "D 8.6A","D8.7A","Cyril"]:
+        if self.cloneid in ["C14","LD33","Chard","D8_4A","D8_6A", "D8_6A","D8_7A","Cyril"]:
             self.season = "misc"
+        elif self.pond == "AD8":
+            self.season = "spring_2016"
         elif self.pond == "D8":
-            if "AD" in self.cloneid:
-                self.season = "spring_2016"
-            else: self.season = "spring_2017"
+            self.season = "spring_2017"
         elif "AW" in self.pond:
             self.season = "spring_2016"
+        elif self.pond == "AD10":
+            self.season = "spring_2016"
         elif self.pond == "D10":
-            if "AD" in self.cloneid:
-                self.season = "spring_2016"
-            else: self.season = "fall_2016"
+            self.season = "fall_2016"
         elif self.pond == "DBunk":
             self.season = "spring_2017"
         else:

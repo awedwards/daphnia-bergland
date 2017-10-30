@@ -36,14 +36,6 @@ def parsePond(s):
     if cloneid is None:
         cloneid = pond
 
-    if 'D' in pond and '8' in pond:
-        pond = 'D8'
-    elif 'D' in pond and '10' in pond:
-        pond = 'D10'
-    
-    elif pond == '8':
-        pond = 'D8'
-
     return pond, cloneid
 
 def parse(s):
