@@ -29,7 +29,7 @@ def parsePond(s):
     #
     # if only the pond is given (e.g. Cyrus), the id defaults to pond name
 
-    pattern = '^A?([DW]?\s?\d{1,2}|Cyril|DBunk|Male|C14|Chard)[\s?|\.?|_?]?A?(\d{1,3})?A?'
+    pattern = '^(A?[DW]?\s?\d{1,2}|Cyril|DBunk|Male|C14|Chard)[\s?|\.?|_?]?(A?\d{1,3}A?)?'
     m = re.search(pattern, s)
     pond, cloneid = m.groups()
 
@@ -180,6 +180,9 @@ def update_clone_list(clones, loadedclones):
             clones[barcode][dt]['full'] = loadedclones[barcode][dt]['full']
             clones[barcode][dt]['full'].analyzed = True
      return clones
+
+
+   
 
 def save_clonelist(clones, path, outfile, cols):
    
