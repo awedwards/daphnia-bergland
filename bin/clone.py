@@ -17,7 +17,7 @@ from collections import defaultdict
 
 class Clone(object):
     
-    def __init__(self,imtype,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir):
+    def __init__(self,filebase,imtype,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir):
         
         self.imtype = imtype
         self.cloneid = cloneid
@@ -53,9 +53,7 @@ class Clone(object):
         self.datetime = datetime
         self.inductiondate = induction
          
-        ext = ".bmp"
-        delim = "_"
-        self.filebase = delim.join((str(barcode),str(cloneid),str(treatment),str(replicate),str(rig),str(datetime))) + ext
+        self.filebase = filebase
 
         self.convert_treatment()
         
@@ -80,7 +78,7 @@ class Clone(object):
         self.total_eye_pixels = None
         self.eye_area = None
         self.animal_length = None
-        self.pedestal_size = None
+	self.pedestal_size = None
         self.pedestal_height = None
         self.pedestal_score_height = None
         self.pedestal_score_area = None

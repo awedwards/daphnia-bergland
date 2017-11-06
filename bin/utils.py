@@ -112,7 +112,9 @@ def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bm
             continue
         
         elif f.endswith(ext) and f.startswith("full_") and os.path.isfile(os.path.join(segdatadir, f)):
-                 
+            
+            filebase = f[5:]
+
             print "Adding " + f + " to clone list"
             imagetype,barcode,clone_id,treatment,replicate,rig,datetime = parse(f)
             
@@ -128,7 +130,17 @@ def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bm
                 #elif imagetype == "close":
                 #    segdir = CLOSESEGDATADIR
 
-                clones[barcode][datetime][imagetype] = Clone(imagetype,barcode,clone_id,treatment,replicate,rig,datetime,induction,datadir,segdir)
+                clones[barcode][datetime][imagetype] = Clone( filebase,
+				imagetype,
+				barcode,
+				clone_id,
+				treatment,
+				replicate,
+				rig,
+				datetime,
+				induction,
+				datadir,
+				segdir)
                 
                 if imagetype == "close":
                     clones[barcode][datetime][imagetype].pixel_to_mm = 1105.33
@@ -152,7 +164,8 @@ def df_to_clonelist(df, datadir = None, segdir = None):
     clones = recursivedict()
 
     for index, row in df.iterrows():
-        clone = Clone( 'full', 
+        clone = Clone( row['filebase']
+		'full',
                 row['barcode'],
                 row['cloneid'],
                 row['treatment'],
@@ -179,10 +192,7 @@ def update_clone_list(clones, loadedclones):
         for dt in loadedclones[barcode].iterkeys():
             clones[barcode][dt]['full'] = loadedclones[barcode][dt]['full']
             clones[barcode][dt]['full'].analyzed = True
-     return clones
-
-
-   
+     return clones  
 
 def save_clonelist(clones, path, outfile, cols):
    
