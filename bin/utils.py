@@ -164,7 +164,7 @@ def df_to_clonelist(df, datadir = None, segdir = None):
     clones = recursivedict()
 
     for index, row in df.iterrows():
-        clone = Clone( row['filebase']
+        clone = Clone( row['filebase'],
 		'full',
                 row['barcode'],
                 row['cloneid'],
