@@ -164,7 +164,7 @@ def df_to_clonelist(df, datadir = None, segdir = None):
     clones = recursivedict()
 
     for index, row in df.iterrows():
-        clone = Clone( row['filebase']
+        clone = Clone( row['filebase'],
 		'full',
                 row['barcode'],
                 row['cloneid'],
@@ -185,6 +185,21 @@ def df_to_clonelist(df, datadir = None, segdir = None):
         clones[str(row['barcode'])][str(row['datetime'])]['full'] = clone
     
     return clones
+def dfrow_to_clonelist(df, irow, datadir = None, segdir = None):
+
+    row = df.iloc[irow]
+
+    return clone = Clone( row['filebase'],
+		'full',
+                row['barcode'],
+                row['cloneid'],
+                row['treatment'],
+                row['replicate'],
+                row['rig'],
+                row['datetime'],
+                row['inductiondate'],
+                datadir,
+                segdir)
 
 def update_clone_list(clones, loadedclones):
 
@@ -203,7 +218,11 @@ def save_clonelist(clones, path, outfile, cols):
         for dt in clones[barcode].iterkeys():
             clone = clones[barcode][dt]["full"]
             write_clone(clone, cols, path, outfile)
-    
+
+def update_attr(src, dest, attr):
+
+    setattr(dest, attr, getattr(src, attr))
+
 def write_clone(clone, cols, path, outfile):
 
     try:        
