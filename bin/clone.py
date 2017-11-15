@@ -103,12 +103,18 @@ class Clone(object):
 	self.eye_minor = None
         self.eye_theta = None
         
-        # these are directional vectors of anatomical direction
+        # these are directional vectors of anatomical direction starting at origin
         
         self.anterior = None
         self.posterior = None
         self.dorsal = None
         self.ventral = None
+        
+	# these are directional vectors of anatomical direction starting at animal center
+        self.ant_vec = None
+	self.pos_vec = None
+	self.dor_vec = None
+	self.ven_vec = None
 
         # these are actual points on the animal
 
@@ -483,20 +489,17 @@ class Clone(object):
         self.eye_x_center, self.eye_y_center, self.eye_major, self.eye_minor, self.eye_theta = self.fit_ellipse(im, 4.6)
 
     def find_body_landmarks(self,im,segim):
-        if len(im.shape) > 1:
+        
+	if len(im.shape) > 1:
             im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         
         # before merging channels, find eye landmarks:
         self.find_eye_vertex(segim, "dorsal")
         self.find_eye_vertex(segim, "anterior")
         self.head = self.eye_anterior
-        # this method smooths animal pixels and finds landmarks
-
+    
         self.find_tail(im)
-        #self.find_head(im,segim)
-        #except TypeError as e:
-        #    print "Error in finding body landmarks"
-        #    pass
+    
     def get_anatomical_directions(self):
         
         # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
@@ -534,7 +537,12 @@ class Clone(object):
             tmp = self.dorsal
             self.dorsal = self.ventral
             self.ventral = tmp
-
+        
+	self.pos_vec = [self.animal_x_center - self.posterior[0], self.animal_y_center - self.posterior[1]]
+        self.dor_vec = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
+        self.ven_vec = [self.animal_x_center - self.ventral[0], self.animal_y_center - self.ventral[1]]
+        self.ant_vec = [self.animal_x_center - self.anterior[0], self.animal_y_center - self.anterior[1]]
+        
     def find_eye_vertex(self, im, vertex):
 
         # finds dorsal point of the eye
@@ -661,16 +669,11 @@ class Clone(object):
         blur = gaussian(hc, 1.5)
         dx, dy = np.gradient(blur)
         
-        posterior = [self.animal_x_center - self.posterior[0], self.animal_y_center - self.posterior[1]]
-        dorsal = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
-        ventral = [self.animal_x_center - self.ventral[0], self.animal_y_center - self.ventral[1]]
-        anterior = [self.animal_x_center - self.anterior[0], self.animal_y_center - self.anterior[1]]
-        
         if part == "tail":
-            post_dot = posterior[0]*dx + posterior[1]*dy
+            post_dot = self.pos_vec[0]*dx + self.pos_vec[1]*dy
             idx_x, idx_y = np.where(utils.norm(post_dot) < threshold)
         if part == "head":
-            ant_dot = anterior[0]*dx + anterior[1]*dy
+            ant_dot = self.ant_vec[0]*dx + self.ant_vec[1]*dy
             idx_x, idx_y = np.where(utils.norm(ant_dot) < threshold)
 
         idx_x += int(bb[0,0])
@@ -684,19 +687,47 @@ class Clone(object):
         tail = self.tail
         mp = (head[0] + tail[0])/2, (head[1] + tail[1])/2
         dp = (self.dorsal[0] + mp[0])/2, (self.dorsal[1] + mp[1])/2
-        dvec = self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]
-        diameter = self.dist(head, dp)
+        
+	diameter = self.dist(head, dp)
         cx, cy = (head[0] + dp[0])/2, (head[1] + dp[1])/2
 
         if (self.animal_x_center - self.anterior[0] < 0):
             theta = np.arctan2(dp[0] - cx, dp[1] - cy)
-            s = np.linspace(theta, theta - np.sign(dvec[1])*np.pi, 400)
+            s = np.linspace(theta, theta - np.sign(self.dor_vec[1])*np.pi, 400)
 
         elif (self.animal_x_center - self.anterior[0] > 0):
             theta = np.arctan2(head[0] - cx, head[1] - cy)
-            s = np.linspace(theta, theta - np.sign(dvec[1])*np.pi, 400)
+            s = np.linspace(theta, theta - np.sign(self.dor_vec[1])*np.pi, 400)
 
         x = cy + int(diameter/2)*np.cos(s)
         y = cx + int(diameter/2)*np.sin(s)
 
         self.pedestal_snake =  np.array([x, y]).T
+    
+    def find_edge(self, im, p1, p2, npoints=200, w_thresh=4):
+	
+        # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
+	xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
+
+	zi = scipy.ndimage.map_coordinates(im, np.vstack((xx, yy)), mode='nearest')
+	zi -= np.mean(zi)
+
+	w = 0
+
+	for j in xrange(1, len(zi)):
+	    if (zi-[j] - zi[j-1] < 0) and (zi[j] < 0):
+                w += 1
+	    else:
+		if (w > w_thresh):
+		    return xx[j], yy[j]
+	        else: w = 0
+	
+	return
+    
+    def gradient(self, im, direction):
+	
+	dx, dy = np.gradient(im)
+
+	dir_x, dir_y = getattr(self, direction[0:3] + "_vec")
+
+        return dir_x*dx + dir_y*dy
