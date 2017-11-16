@@ -628,6 +628,15 @@ class Clone(object):
 
             self.head = hx, hy
 
+    def find_dorsal(self, im):
+
+        dot = gradient(im, "dorsal")
+
+        p1 = ((self.head[0] + self.tail[0])/2, (self.head[1] + self.tail[1])/2)
+        p2 = (p1[0] + self.dor_vec[0], p1[1] + self.dor_vec[1])
+
+        self.dorsal_point = find_edge(dot, p1, p2)
+
     def find_tail(self, im):
         
         # uses ellipse fit to find tail landmark
