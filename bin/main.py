@@ -72,6 +72,10 @@ cols = ["filebase",
         "posterior",
         "dorsal",
         "ventral",
+	"ant_vec",
+	"pos_vec",
+	"dor_vec",
+	"ven_vec",
         "head",
         "tail"]
 

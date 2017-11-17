@@ -272,6 +272,7 @@ def analyze_clone(clone, flags):
         if "doOrientation" in flags:
             print "Finding animal orientation."
             clone.get_anatomical_directions()
+            clone.get_orientation_vectors()
 
         if "doBodyLandmarks" in flags:
             print "Finding body landmarks."

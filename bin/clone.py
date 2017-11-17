@@ -537,7 +537,9 @@ class Clone(object):
             tmp = self.dorsal
             self.dorsal = self.ventral
             self.ventral = tmp
-        
+    
+    def get_orientation_vectors(self):
+
 	self.pos_vec = [self.animal_x_center - self.posterior[0], self.animal_y_center - self.posterior[1]]
         self.dor_vec = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
         self.ven_vec = [self.animal_x_center - self.ventral[0], self.animal_y_center - self.ventral[1]]
@@ -630,7 +632,7 @@ class Clone(object):
 
     def find_dorsal(self, im):
 
-        dot = gradient(im, "dorsal")
+        dot = self.gradient(im, "dorsal")
 
         p1 = ((self.head[0] + self.tail[0])/2, (self.head[1] + self.tail[1])/2)
         p2 = (p1[0] + self.dor_vec[0], p1[1] + self.dor_vec[1])
