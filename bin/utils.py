@@ -127,21 +127,19 @@ def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bm
                 
                 if imagetype == "full":
                     segdir = segdatadir
-                #elif imagetype == "close":
-                #    segdir = CLOSESEGDATADIR
 
                 clones[barcode][datetime][imagetype] = Clone( filebase,
-				imagetype,
-				barcode,
-				clone_id,
-				treatment,
-				replicate,
-				rig,
-				datetime,
-				induction,
-				datadir,
-				segdir)
-                
+                        imagetype,
+                        barcode,
+                        clone_id,
+                        treatment,
+                        replicate,
+                        rig,
+                        datetime,
+                        induction,
+                        datadir,
+                        segdir)
+        
                 if imagetype == "close":
                     clones[barcode][datetime][imagetype].pixel_to_mm = 1105.33
                 try:
@@ -185,11 +183,12 @@ def df_to_clonelist(df, datadir = None, segdir = None):
         clones[str(row['barcode'])][str(row['datetime'])]['full'] = clone
     
     return clones
+
 def dfrow_to_clonelist(df, irow, datadir = None, segdir = None):
 
     row = df.iloc[irow]
 
-    return clone = Clone( row['filebase'],
+    return Clone( row['filebase'],
 		'full',
                 row['barcode'],
                 row['cloneid'],

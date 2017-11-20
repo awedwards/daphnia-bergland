@@ -735,9 +735,9 @@ class Clone(object):
 	
 	return
     
-    def gradient(self, im, direction):
+    def gradient(self, im, direction, blur=0.5):
 	
-	dx, dy = np.gradient(im)
+	dx, dy = np.gradient(np.gaussian(im,0.5))
 
 	dir_x, dir_y = getattr(self, direction[0:3] + "_vec")
 
