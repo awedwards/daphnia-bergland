@@ -102,7 +102,7 @@ class Clone(object):
         self.eye_major = None
         self.eye_minor = None
         self.eye_theta = None
-	
+
         # these are directional vectors of anatomical direction starting at origin
         
         self.anterior = None
@@ -119,7 +119,7 @@ class Clone(object):
         # these are actual points on the animal
 
         self.eye_dorsal = None
-	self.head = None
+	    self.head = None
         self.tail = None
         self.dorsal_point = None
     
@@ -499,6 +499,7 @@ class Clone(object):
         self.head = self.eye_anterior
     
         self.find_tail(im)
+        self.find_dorsal(im)
     
     def get_anatomical_directions(self):
         
@@ -635,8 +636,7 @@ class Clone(object):
         dot = self.gradient(im, "dorsal")
 
         p1 = ((self.head[0] + self.tail[0])/2, (self.head[1] + self.tail[1])/2)
-        p2 = (p1[0] + self.dor_vec[0], p1[1] + self.dor_vec[1])
-
+        m = -1/((self.head[1] - clone.tail[1])/(clone.head[0] - clone.tail[0]))
         self.dorsal_point = find_edge(dot, p1, p2)
 
     def find_tail(self, im):
@@ -715,29 +715,37 @@ class Clone(object):
 
         self.pedestal_snake =  np.array([x, y]).T
     
-    def find_edge(self, im, p1, p2, npoints=200, w_thresh=4):
+    def find_edge(self, im, p1, p2, npoints=400, ma=4, w_threshold=50):
 
         # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
         xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
 
         zi = scipy.ndimage.map_coordinates(im, np.vstack((xx, yy)), mode='nearest')
         zi -= np.mean(zi)
+        
+        zi = pd.rolling_mean(zi, ma)
 
-        w = 0
+        lb = np.nanmin(zi)/2
+        ub = np.nanmax(zi)/2
 
-        for j in xrange(1, len(zi)):
-            if (zi-[j] - zi[j-1] < 0) and (zi[j] < 0):
-                w += 1
-            else:
-                if (w > w_thresh):
-                    return xx[j], yy[j]
-                else: w = 0
+        mins = []
+        maxes = []
+
+        for i in xrange(ma, len(zi)-1):
+            if (zi[i] - zi[i-1] < 0) and (zi[i+1] - zi[i] > 0) and (zi[i] < lb):
+                mins.append(i)
+            elif (zi[i] - zi[i-l] > 0) and (zi[i+1] - zi[i] < 0) and (zi[i] > ub):
+                maxes.append(i)
 	
+        for j in mins:
+            for k in maxes:
+                if np.abs(j - k) < 50:
+                    return (xx[j], yy[j])          # intentionally return first trough
         return
     
-    def gradient(self, im, direction, blur=0.5):
+    def gradient(self, im, direction, sigma=0.5):
 
-        dx, dy = np.gradient(gaussian(im,0.5))
+        dx, dy = np.gradient(gaussian(im, sigma))
 
         dir_x, dir_y = getattr(self, direction[0:3] + "_vec")
 
