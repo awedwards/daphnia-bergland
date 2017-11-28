@@ -119,7 +119,7 @@ class Clone(object):
         # these are actual points on the animal
 
         self.eye_dorsal = None
-	    self.head = None
+	self.head = None
         self.tail = None
         self.dorsal_point = None
     
@@ -637,8 +637,9 @@ class Clone(object):
 
         p1 = ((self.head[0] + self.tail[0])/2, (self.head[1] + self.tail[1])/2)
         m = -1/((self.head[1] - self.tail[1])/(self.head[0] - self.tail[0]))
-        p2 = (clone.dorsal[1]-b)/m, clone.dorsal[1]
-        self.dorsal_point = find_edge(dot, p2, p1)
+        b = p1[1] - m*p1[0]
+        p2 = (self.dorsal[1]-b)/m, self.dorsal[1]
+        self.dorsal_point = self.find_edge(dot, p2, p1)
 
     def find_tail(self, im):
         
@@ -735,13 +736,13 @@ class Clone(object):
         for i in xrange(ma, len(zi)-1):
             if (zi[i] - zi[i-1] < 0) and (zi[i+1] - zi[i] > 0) and (zi[i] < lb):
                 mins.append(i)
-            elif (zi[i] - zi[i-l] > 0) and (zi[i+1] - zi[i] < 0) and (zi[i] > ub):
+            elif (zi[i] - zi[i-1] > 0) and (zi[i+1] - zi[i] < 0) and (zi[i] > ub):
                 maxes.append(i)
 	
         for j in mins:
             for k in maxes:
                 if np.abs(j - k) < 50:
-                    return (xx[j], yy[j])          # intentionally return first trough
+                    return (yy[j], xx[j])          # intentionally return first trough
         return
     
     def gradient(self, im, direction, sigma=0.5):
