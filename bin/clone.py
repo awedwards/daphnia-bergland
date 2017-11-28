@@ -490,7 +490,7 @@ class Clone(object):
 
     def find_body_landmarks(self,im,segim):
         
-        if len(im.shape) > 1:
+        if len(im.shape) > 2:
             im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         
         # before merging channels, find eye landmarks:
@@ -636,8 +636,9 @@ class Clone(object):
         dot = self.gradient(im, "dorsal")
 
         p1 = ((self.head[0] + self.tail[0])/2, (self.head[1] + self.tail[1])/2)
-        m = -1/((self.head[1] - clone.tail[1])/(clone.head[0] - clone.tail[0]))
-        self.dorsal_point = find_edge(dot, p1, p2)
+        m = -1/((self.head[1] - self.tail[1])/(self.head[0] - self.tail[0]))
+        p2 = (clone.dorsal[1]-b)/m, clone.dorsal[1]
+        self.dorsal_point = find_edge(dot, p2, p1)
 
     def find_tail(self, im):
         
@@ -718,7 +719,7 @@ class Clone(object):
     def find_edge(self, im, p1, p2, npoints=400, ma=4, w_threshold=50):
 
         # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
-        xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
+        xx, yy = np.linspace(p1[0], p2[0], npoints), np.linspace(p1[1], p2[1], npoints)
 
         zi = scipy.ndimage.map_coordinates(im, np.vstack((xx, yy)), mode='nearest')
         zi -= np.mean(zi)
