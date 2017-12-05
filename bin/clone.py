@@ -717,6 +717,95 @@ class Clone(object):
 
         self.pedestal_snake =  np.array([x, y]).T
     
+    def fit_pedestal(self, im, hc=True, npoints=200, bound=0.2, ma=4):
+
+        if self.pedestal_snake is None: self.initialize_snake()
+        ps = self.pedestal_snake
+
+        head = self.head
+        tail = self.tail
+        dp = self.dorsal_point
+ 
+        if hc:
+            # we use Contrast Limited Adaptive Histogram Equalization to 
+            # increase contrast around pedestal for better edge detection
+            
+            bb_x = ( int(np.min(ps[:,1])), int(np.max(ps[:,1])) )
+            bb_y = ( int(np.min(ps[:,0])), int(np.max(ps[:,0])) )
+
+            cropped = im[bb_x[0]:bb_x[1], bb_y[0]:bb_y[1]]
+            clahe = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(8,8))
+            result = clahe.apply(cropped)
+            im[bb_x[0]:bb_x[1], bb_y[0]:bb_y[1]] = result
+
+        dot = 4*self.gradient(im, "dorsal", sigma=1) + self.gradient(im, "anterior", sigma=1)
+        
+        n = ps.shape[0]
+
+        snakex = ps[:,0]
+        snakey = ps[:,1]
+
+        x1 = snakex[0]
+        y1 = snakey[0]
+        x2 = snakex[-1]
+        y2 = snakey[-1]
+
+        m = (y2 - y1)/(x2 - x1)
+        b = y1 - m*x1
+
+        m2 = -1/m
+
+        ped_x = []
+        ped_y = []
+
+        edge = []
+
+        for i in xrange(n-1):
+            
+            p2 = snakex[i], snakey[i]
+            b2 = p2[1] - m2*p2[0]
+
+            x = (b2 - b)/(m - m2)
+            y = (m2*x + b2)
+            p1 = x, y
+
+            xx, yy = np.linspace(p2[1], p1[1], npoints), np.linspace(p2[0], p1[0], npoints)
+
+            zi = scipy.ndimage.map_coordinates(dot, np.vstack((xx, yy)), mode='nearest')
+            zi -= np.mean(zi)
+            
+            zi = pd.rolling_mean(zi, ma)
+
+            lb = np.nanmean(zi) - bound*(np.nanmean(zi) - np.nanmin(zi))
+            ub = np.nanmean(zi) + bound*(np.nanmax(zi) - np.nanmean(zi))
+
+            mins = []
+            maxs = []
+
+            for j in xrange(ma, len(zi)-1):
+                
+                if (zi[j] - zi[j-1] < 0) and (zi[j+1] - zi[j] > 0) and (zi[j] < lb):
+                    mins.append(j)
+                elif (zi[j] - zi[j-1] > 0) and (zi[j+i] - zi[j] < 0) and (zi[j] > ub):
+                    maxs.append(j)
+
+            tmp = []
+            for j in mins:
+                for k in maxs:
+                    if np.abs(j-k) < 20:
+                        tmp.append((yy[j], xx[j]))
+            
+            try:
+                edge.append(tmp[0])
+            except IndexError: pass
+        
+        for i in xrange(2, edge.shape[0] - 2):
+            avg = np.mean(edge[i-2:i+2, :], axis=0)
+            if self.dist(edge[i, :], avg) < 3:
+                new_edge.append(edge[i, :])
+
+        return np.array(new_edge)
+    
     def find_edge(self, im, p1, p2, npoints=400, ma=4, w_threshold=50):
 
         # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
