@@ -717,7 +717,7 @@ class Clone(object):
 
         self.pedestal_snake =  np.array([x, y]).T
     
-    def fit_pedestal(self, im, hc=True, npoints=200, bound=0.2, ma=4):
+    def fit_pedestal(self, im, hc=True, npoints=200, bound=0.2, ma=4, prune_ma=4, prune_threshold=3):
 
         if self.pedestal_snake is None: self.initialize_snake()
         ps = self.pedestal_snake
@@ -799,9 +799,11 @@ class Clone(object):
                 edge.append(tmp[0])
             except IndexError: pass
         
-        for i in xrange(2, edge.shape[0] - 2):
-            avg = np.mean(edge[i-2:i+2, :], axis=0)
-            if self.dist(edge[i, :], avg) < 3:
+        window = int(prune_ma/2)
+        
+        for i in xrange(window, edge.shape[0] - window):
+            avg = np.mean(edge[i-window:i+window, :], axis=0)
+            if self.dist(edge[i, :], avg) < prune_threshold:
                 new_edge.append(edge[i, :])
 
         return np.array(new_edge)
