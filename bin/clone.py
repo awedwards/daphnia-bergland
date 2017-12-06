@@ -759,56 +759,33 @@ class Clone(object):
         ped_y = []
 
         edge = []
+        pruned_edge = []
+        init = []
 
         for i in xrange(n-1):
             
-            p2 = snakex[i], snakey[i]
+            p2 = snakey[i], snakex[i]
             b2 = p2[1] - m2*p2[0]
 
             x = (b2 - b)/(m - m2)
             y = (m2*x + b2)
-            p1 = x, y
-
-            xx, yy = np.linspace(p2[1], p1[1], npoints), np.linspace(p2[0], p1[0], npoints)
-
-            zi = scipy.ndimage.map_coordinates(dot, np.vstack((xx, yy)), mode='nearest')
-            zi -= np.mean(zi)
+            p1 = y, x
             
-            zi = pd.rolling_mean(zi, ma)
-
-            lb = np.nanmean(zi) - bound*(np.nanmean(zi) - np.nanmin(zi))
-            ub = np.nanmean(zi) + bound*(np.nanmax(zi) - np.nanmean(zi))
-
-            mins = []
-            maxs = []
-
-            for j in xrange(ma, len(zi)-1):
-                
-                if (zi[j] - zi[j-1] < 0) and (zi[j+1] - zi[j] > 0) and (zi[j] < lb):
-                    mins.append(j)
-                elif (zi[j] - zi[j-1] > 0) and (zi[j+i] - zi[j] < 0) and (zi[j] > ub):
-                    maxs.append(j)
-
-            tmp = []
-            for j in mins:
-                for k in maxs:
-                    if np.abs(j-k) < 20:
-                        tmp.append((yy[j], xx[j]))
-            
-            try:
-                edge.append(tmp[0])
-            except IndexError: pass
+            e = self.find_edge(dot, p2, p1, npoints, ma, w_threshold=20)
+            if e is not None:
+                init.append((x2, y2))
+                edge.append(e)
         
         window = int(prune_ma/2)
-        
+        edge = np.array(edge)
         for i in xrange(window, edge.shape[0] - window):
             avg = np.mean(edge[i-window:i+window, :], axis=0)
             if self.dist(edge[i, :], avg) < prune_threshold:
-                new_edge.append(edge[i, :])
+                pruned_edge.append((i, self.dist(edge[i, :], init[i])))
 
-        return np.array(new_edge)
+        return np.array(pruned_edge)
     
-    def find_edge(self, im, p1, p2, npoints=400, ma=4, w_threshold=50):
+    def find_edge(self, im, p1, p2, npoints=400, ma=4, bound=0.2, w_threshold=50):
 
         # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
         xx, yy = np.linspace(p1[0], p2[0], npoints), np.linspace(p1[1], p2[1], npoints)
@@ -818,9 +795,9 @@ class Clone(object):
         
         zi = pd.rolling_mean(zi, ma)
 
-        lb = np.nanmin(zi)/2
-        ub = np.nanmax(zi)/2
-
+        lb = np.nanmean(zi) - bound*(np.nanmean(zi) - np.nanmin(zi))
+        ub = np.nanmean(zi) + bound*(np.nanmax(zi) - np.nanmean(zi))
+        
         mins = []
         maxes = []
 
@@ -832,10 +809,10 @@ class Clone(object):
 	
         for j in mins:
             for k in maxes:
-                if np.abs(j - k) < 50:
+                if np.abs(j - k) < w_threshold:
                     return (yy[j], xx[j])          # intentionally return first trough
         return
-    
+
     def gradient(self, im, direction, sigma=0.5):
 
         dx, dy = np.gradient(gaussian(im, sigma))

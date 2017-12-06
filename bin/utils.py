@@ -246,6 +246,9 @@ def write_clone(clone, cols, path, outfile):
 def analyze_clone(clone, flags):
 
     try:
+        if ("doBodyLandmarks" in flags) or ("doPedestalScore" in flags):
+            im = cv2.imread(clone.filepath)
+
         split = clone.split_channels( cv2.imread( clone.seg_filepath ) )
         
         if "getPxtomm" in flags:
@@ -275,17 +278,17 @@ def analyze_clone(clone, flags):
 
         if "doBodyLandmarks" in flags:
             print "Finding body landmarks."
-            im = cv2.imread(clone.filepath)
             clone.find_body_landmarks(im, split)
 
         if "doLength" in flags:
             print "Calculating length"
+            
             clone.calculate_length()
 
         if "doPedestalScore" in flags:
             print "Finding pedestal"
             clone.initialize_snake()
-    
+            clone.fit_pedestal(im)
+        
     except AttributeError:
-
         print "Error during analysis of " + clone.filepath

@@ -1,7 +1,9 @@
 from __future__ import division
 import utils
+import pandas as pd
 from clone import Clone
 import os
+import cv2
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/02_simplesegmentation"
@@ -13,6 +15,7 @@ ext = '.bmp'
 outfile = "analysis_results.txt"
 
 analysis = True
+build_clonedata = False
 
 flgs = []
 
@@ -24,11 +27,10 @@ if analysis == True:
     flgs.append("doBodyLandmarks")
     flgs.append("doLength")
     flgs.append("doOrientation")
-    #flgs.append("doPedestalScore")
+    flgs.append("doPedestalScore")
 
 print "Loading clone data\n"
 
-build_clonedata = False
 
 try:
     df = utils.csv_to_df(os.path.join(ANALYSISDIR, outfile))
@@ -86,15 +88,29 @@ except IOError:
     print "Starting new output file"
     with open(os.path.join(ANALYSISDIR, outfile), "wb+") as f:
         f.write( "\t".join(cols) + "\n")
-     
+
+pedestal_data = pd.DataFrame( columns = ['filepath', 'pedestal'] )
+
+row = 0
+
 if analysis:
     for barcode in clones.keys():
         for dt in clones[barcode].keys():
             clone = clones[barcode][dt]["full"]
+            
             if not clone.analyzed:
                 print "Analyzing " + clone.filebase
                 utils.analyze_clone(clone, flgs)
                 utils.write_clone(clone, cols, ANALYSISDIR, outfile)
                 clone.analyzed = True
-
+                
+            if "doPedestalScore" in flgs:
+                 clone.initialize_snake()
+                 im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
+                 print "Fitting pedestal for " + clone.filebase
+                 pedestal = clone.fit_pedestal(im)
+                 pedestal_data.loc[row] = [clone.filebase, pedestal]
+                 row+=1
+    pedestal_data.to_csv(os.path.join(ANALYSISDIR, "pedestal_fits.txt", sep="\t"))
+        
 #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
