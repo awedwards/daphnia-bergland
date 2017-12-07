@@ -787,9 +787,8 @@ class Clone(object):
             #    print edge[i,:], init[i]
                 pruned_edge.append((i, self.dist(edge[i, :], init[i])))
         
-        pruned_edge = np.array(pruned_edge)
         #pruned_edge_normalized = [pruned_edge[:,0], pruned_edge[:,1]/(self.pixel_to_mm/self.animal_length)]
-        return np.array(pruned_edge)
+        return pruned_edge
     
     def find_edge(self, im, p1, p2, npoints=400, ma=4, bound=0.2, w_threshold=50):
 

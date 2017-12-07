@@ -59,16 +59,16 @@ def recursivedict():
 
     return defaultdict(recursivedict)
 
-def load_induction_data(path):
+def load_induction_data(filepath):
     
     print "Loading induction data\n"
     inductiondates = dict()
-    inductionfiles = os.listdir(path)
+    inductionfiles = os.listdir(filepath)
 
     for i in inductionfiles:
         if not i.startswith("._") and (i.endswith(".xlsx") or i.endswith(".xls")):
             print "Loading " + i
-            wb = load_workbook(os.path.join(path,i),data_only=True)
+            wb = load_workbook(os.path.join(filepath,i), data_only=True)
             data = wb["Inductions"].values
             cols = next(data)[0:]
             data = list(data)
@@ -82,11 +82,11 @@ def load_induction_data(path):
 
     return inductiondates
 
-def load_manual_scales(path):
+def load_manual_scales(filepath):
 
      # load manual_scales
     manual_scales = {}
-    with open(os.path.join(path, "manual_scales.txt"),'rb') as f:
+    with open(os.path.join(filepath, "manual_scales.txt"),'rb') as f:
         line = f.readline()
         while line:
             filename,conversion = line.strip().split(',')
@@ -94,6 +94,33 @@ def load_manual_scales(path):
             line = f.readline()
     
     return manual_scales
+
+def write_pedesaal_data(data, filepath):
+
+    with open(filepath, "w") as f:
+        
+        f.write('\t'.join(["filebase","pedestal_data"]) + "\n")
+
+        for k, v in data.iteritems():
+            f.write('\t'.join([k, v]) + "\n")
+
+def append_pedestal_line(clone_filebase, data, filepath):
+
+    with open(filepath, "a") as f:
+        f.write('\t'.join([clone_filebase, str(data)]) + "\n")
+
+def load_pedestal_data(filepath):
+    
+    data = {}
+    
+    with open(filepath, "r") as f:
+        line = f.readline()
+        while line:
+            d = line.strip().split("\t")
+            data[d[0]] = np.array(literal_eval(d[1]))
+            line = f.readline()
+
+    return data
 
 def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bmp"):
     
