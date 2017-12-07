@@ -742,6 +742,9 @@ class Clone(object):
         
         n = ps.shape[0]
 
+        if self.dist(head, (ps[0,1], ps[0,0]) ) > 2:
+            ps = np.flip(ps, 0)
+        
         snakex = ps[:,0]
         snakey = ps[:,1]
 
@@ -749,7 +752,7 @@ class Clone(object):
         y1 = snakey[0]
         x2 = snakex[-1]
         y2 = snakey[-1]
-
+        
         m = (y2 - y1)/(x2 - x1)
         b = y1 - m*x1
 
@@ -764,16 +767,16 @@ class Clone(object):
 
         for i in xrange(n-1):
             
-            p2 = snakey[i], snakex[i]
+            p2 = snakex[i], snakey[i]
             b2 = p2[1] - m2*p2[0]
 
             x = (b2 - b)/(m - m2)
             y = (m2*x + b2)
-            p1 = y, x
+            p1 = x, y
             
             e = self.find_edge(dot, p2, p1, npoints, ma, w_threshold=20)
             if e is not None:
-                init.append((x2, y2))
+                init.append((x,y))
                 edge.append(e)
         
         window = int(prune_ma/2)
@@ -781,14 +784,17 @@ class Clone(object):
         for i in xrange(window, edge.shape[0] - window):
             avg = np.mean(edge[i-window:i+window, :], axis=0)
             if self.dist(edge[i, :], avg) < prune_threshold:
+            #    print edge[i,:], init[i]
                 pruned_edge.append((i, self.dist(edge[i, :], init[i])))
-
+        
+        pruned_edge = np.array(pruned_edge)
+        #pruned_edge_normalized = [pruned_edge[:,0], pruned_edge[:,1]/(self.pixel_to_mm/self.animal_length)]
         return np.array(pruned_edge)
     
     def find_edge(self, im, p1, p2, npoints=400, ma=4, bound=0.2, w_threshold=50):
 
         # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
-        xx, yy = np.linspace(p1[0], p2[0], npoints), np.linspace(p1[1], p2[1], npoints)
+        xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
 
         zi = scipy.ndimage.map_coordinates(im, np.vstack((xx, yy)), mode='nearest')
         zi -= np.mean(zi)

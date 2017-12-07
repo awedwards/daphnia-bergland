@@ -4,6 +4,7 @@ import pandas as pd
 from clone import Clone
 import os
 import cv2
+import cPickle
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
 SEGDATADIR = "/mnt/spicy_4/daphnia/02_simplesegmentation"
@@ -89,9 +90,19 @@ except IOError:
     with open(os.path.join(ANALYSISDIR, outfile), "wb+") as f:
         f.write( "\t".join(cols) + "\n")
 
-pedestal_data = pd.DataFrame( columns = ['filepath', 'pedestal'] )
 
-row = 0
+try:
+    pedestal_data = cPickle.load(open(os.path.join(ANALYSISDIR, "pedestal.pkl"), "rb"))
+except IOError:
+    pedestal_data = {}
+
+print "Loading pedestal data"
+for barcode in clones.keys():
+    for dt in clones[barcode].keys():
+        clone = clones[barcode][dt]["full"]
+        if clone.filebase in pedestal_data.keys():
+            clones[barcode][dt]["full"].pedestal_analyzed = True
+        else: clones[barcode][dt]["full"].pedestal_analyzed = False
 
 if analysis:
     for barcode in clones.keys():
@@ -105,12 +116,15 @@ if analysis:
                 clone.analyzed = True
                 
             if "doPedestalScore" in flgs:
-                 clone.initialize_snake()
-                 im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
-                 print "Fitting pedestal for " + clone.filebase
-                 pedestal = clone.fit_pedestal(im)
-                 pedestal_data.loc[row] = [clone.filebase, pedestal]
-                 row+=1
-    pedestal_data.to_csv(os.path.join(ANALYSISDIR, "pedestal_fits.txt", sep="\t"))
+                if not clone.pedestal_analyzed:
+                    try:
+                        clone.initialize_snake()
+                        im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
+                        print "Fitting pedestal for " + clone.filebase
+                        pedestal_data[clone.filebase] = clone.fit_pedestal(im)
+                    except Exception as e:
+                        print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
+            
+            cPickle.dump(pedestal_data, open(os.path.join(ANALYSISDIR, "pedestal.pkl"), "wb"))
         
 #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
