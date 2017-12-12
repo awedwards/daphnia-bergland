@@ -24,7 +24,8 @@ class Clone(object):
         self.pond = None
         self.id = None
         self.pond, self.id = utils.parsePond(self.cloneid)
-        
+        self.sampling = None
+
         if self.cloneid in ["C14","LD33","Chard","D8_4A","D8_6A", "D8_6A","D8_7A","Cyril"]:
             self.season = "misc"
         elif self.pond == "AD8":
@@ -41,6 +42,12 @@ class Clone(object):
             self.season = "spring_2017"
         else:
             self.season = "other"
+        
+        if self.season == "spring_2017":
+            if (self.pond == "D8") or (self.pond == "DBunk"):
+                if int(self.id) < 500:
+                    self.sampling = "first_sampling"
+                else: self.sampling = "second_sampling"
 
         if self.cloneid in ["D8_183","D8_191","D8_213","DBunk_90","DBunk_131","DBunk_132"]:
             self.control = True
@@ -725,7 +732,7 @@ class Clone(object):
         head = self.head
         tail = self.tail
         dp = self.dorsal_point
- 
+        
         if hc:
             # we use Contrast Limited Adaptive Histogram Equalization to 
             # increase contrast around pedestal for better edge detection
@@ -737,7 +744,7 @@ class Clone(object):
             clahe = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(8,8))
             result = clahe.apply(cropped)
             im[bb_x[0]:bb_x[1], bb_y[0]:bb_y[1]] = result
-
+        
         dot = 4*self.gradient(im, "dorsal", sigma=1) + self.gradient(im, "anterior", sigma=1)
         
         n = ps.shape[0]
@@ -764,7 +771,6 @@ class Clone(object):
         edge = []
         pruned_edge = []
         init = []
-
         for i in xrange(n-1):
             
             p2 = snakex[i], snakey[i]
