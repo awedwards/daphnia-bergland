@@ -267,10 +267,10 @@ def write_clone(clone, cols, path, outfile):
         
             f.write( "\t".join(tmpdata) + "\n")
 
-    except IOError:
+    except (IOError, AttributeError):
         print "Can't write clone data to file"
 
-def analyze_clone(clone, flags):
+def analyze_clone(clone, flags, pedestal_data=None):
 
     try:
         if ("doBodyLandmarks" in flags) or ("doPedestalScore" in flags):
@@ -309,13 +309,17 @@ def analyze_clone(clone, flags):
 
         if "doLength" in flags:
             print "Calculating length"
-            
             clone.calculate_length()
 
         if "doPedestalScore" in flags:
-            print "Finding pedestal"
-            clone.initialize_snake()
-            clone.fit_pedestal(im)
-        
+            print "Calculating pedestal area"
+            try:
+                coords = pedestal_data[clone.filebase]
+                clone.get_pedestal_area(coords)
+                clone.get_pedestal_max_height(coords)
+                clone.get_pedestal_theta(coords)
+
+            except KeyError:
+                print "No pedestal data for clone " + clone.filebase
     except AttributeError:
         print "Error during analysis of " + clone.filepath
