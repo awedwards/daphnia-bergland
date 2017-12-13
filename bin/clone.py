@@ -87,8 +87,7 @@ class Clone(object):
         self.animal_length = None
         self.pedestal_size = None
         self.pedestal_height = None
-        self.pedestal_score_height = None
-        self.pedestal_score_area = None
+        self.pedestal_area = None
         self.snake = None
         self.pixel_to_mm = None
         
@@ -796,6 +795,10 @@ class Clone(object):
         #pruned_edge_normalized = [pruned_edge[:,0], pruned_edge[:,1]/(self.pixel_to_mm/self.animal_length)]
         return pruned_edge
     
+    def get_pedestal_area(self, data):
+        self.pedestal_area = np.sum(0.5*(self.dist(self.head, self.dorsal_point)/400)*(data[1:][:,0] - data[0:-1][:,0])*(data[1:][:,1] + data[0:-1][:,1]))
+        
+
     def find_edge(self, im, p1, p2, npoints=400, ma=4, bound=0.2, w_threshold=50):
 
         # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
