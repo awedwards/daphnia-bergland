@@ -428,7 +428,29 @@ class Clone(object):
             self.animal_length = self.dist(self.head,self.tail)/self.pixel_to_mm
         except Exception as e:
             print e
+    
+    def foreground_mask(self, im, sigma=5, perc=2.5):
 
+        blurred = gaussian(im, sigma=sigma)
+        edges = cv2.Canny(np.array(blurred*255, dtype=np.uint8), 0, 10)
+        thresh_int = np.percentile(im, 2.5)
+
+        dx, dy = np.gradient(blurred)
+        dx = utils.norm(dx)
+        dy = utils.norm(dy)
+
+        bins = np.inspace(0, 1, 100)
+        hx = np.histogram(np.ndarry.flatten(dx), bins=bins)
+        tx = hx[1][np.argmax(hx[0])]
+        hy = np.histogram(np.ndarry.flatten(dy), bins=bins)
+        ty = hy[1][np.argmax(hy[0])]
+        return np.logical_or.reduce( ( im<thresh_int,
+            edges,
+            dy<ty-0.05,
+            dy>ty+0.05,
+            dx<tx-0.05,
+            dy>ty+0.05) )
+        
     def fit_ellipse(self, im, chi_2):
         
         # fit an ellipse to the animal pixels
