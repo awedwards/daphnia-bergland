@@ -526,15 +526,13 @@ class Clone(object):
 
         self.eye_x_center, self.eye_y_center, self.eye_major, self.eye_minor, self.eye_theta = self.fit_ellipse(im, 4.6)
 
-    def find_body_landmarks(self,im,segim):
+    def find_body_landmarks(self, im):
         
-        if len(im.shape) > 2:
-            im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         
         # before merging channels, find eye landmarks:
-        self.find_eye_vertex(segim, "dorsal")
-        self.find_eye_vertex(segim, "anterior")
-        self.head = self.eye_anterior
+        #self.find_eye_vertex(segim, "dorsal")
+        #self.find_eye_vertex(segim, "anterior")
+        self.head = self.eye_x_center, self.eye_y_center
     
         self.find_tail(im)
         self.find_dorsal(im)
