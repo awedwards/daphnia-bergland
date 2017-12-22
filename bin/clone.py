@@ -439,10 +439,10 @@ class Clone(object):
         dx = utils.norm(dx)
         dy = utils.norm(dy)
 
-        bins = np.inspace(0, 1, 100)
-        hx = np.histogram(np.ndarry.flatten(dx), bins=bins)
+        bins = np.linspace(0, 1, 100)
+        hx = np.histogram(np.ndarray.flatten(dx), bins=bins)
         tx = hx[1][np.argmax(hx[0])]
-        hy = np.histogram(np.ndarry.flatten(dy), bins=bins)
+        hy = np.histogram(np.ndarray.flatten(dy), bins=bins)
         ty = hy[1][np.argmax(hy[0])]
         
         return np.logical_or.reduce( ( im<thresh_int,
@@ -541,10 +541,10 @@ class Clone(object):
     
     def get_anatomical_directions(self, im):
 
-        fg = foreground_mask(im)
+        fg = self.foreground_mask(im)
         eye = (self.eye_x_center, self.eye_y_center)
 
-        x, y, major, minor = self.fit_ellipse(fg, 10)
+        x, y, major, minor, theta = self.fit_ellipse(fg, 10)
         self.animal_x_center, self.animal_y_center = x, y
 
         animal = fg.copy()
@@ -571,8 +571,8 @@ class Clone(object):
             self.posterior = major_vertex_1
 
         animal_idx = np.array( np.where( animal ) )
-        tail = animal_idx[:, np.argmax( utils.norm( np.sqrt( np.sum( np.power( np.transpose(animal_idx) - eye, 2), axis=1))),
-            utils.norm( np.dot( np.transpose(animal_idx) - eye), (x - anterior[0], y - anterior[1]))]
+        tail = animal_idx[:, np.argmax( utils.norm( np.sqrt( np.sum( np.power( np.transpose(animal_idx) - eye, 2), axis=1))) +
+            utils.norm( np.dot( np.transpose(animal_idx) - eye, (x - anterior[0], y - anterior[1])))) ]
 
         if self.dist( minor_vertex_1, tail ) < self.dist( minor_vertex_2, tail ):
             self.dorsal = minor_vertex_1
