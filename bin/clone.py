@@ -547,16 +547,6 @@ class Clone(object):
         x, y, major, minor, theta = self.fit_ellipse(fg, 10)
         self.animal_x_center, self.animal_y_center = x, y
 
-        animal = fg.copy()
-        el = matplotlib.patches.Ellipse((int(x), int(y)), int(major), int(minor), int(theta*(180/np.pi)))
-
-        points = list(zip(*(c.flat for c in np.where(animal))))
-
-        for i in points:
-            if not el.contains_point(i): animal[i] = 0
-
-        x, y, major, minor, theta = self.fit_ellipse(animal, 3)
-        
         major_vertex_1 = (x - 0.5*major*np.sin(theta), y - 0.5*major*np.cos(theta))
         major_vertex_2 = (x + 0.5*major*np.sin(theta), y + 0.5*major*np.cos(theta))
 
@@ -570,7 +560,26 @@ class Clone(object):
             self.anterior = major_vertex_2
             self.posterior = major_vertex_1
 
+        animal = fg.copy()
+        el = matplotlib.patches.Ellipse((int(x), int(y)), 1.5*int(major), 1.5*int(minor), int(theta*(180/np.pi)))
+
+        points = np.array( np.where(animal) )
+        cos_angle = np.cos(np.radians(180.-theta*(180/np.pi)))
+        sin_angle = np.sin(np.radians(180.-theta*(180/np.pi)))
+
+        xc = points[:, 0] - x
+        yc = points[:, 1] -y
+
+        xct = xc * cos_angle - yc * sin_angle
+        yct = xc * sin_angle + yc * cos_angle
+
+        rad_cc = (xct**2/(major/2)**2) + (yct**2/(minor/2)**2)
+
+        animal[np.where(rad_cc > 1)] = 0
+
+        x, y, major, minor, theta = self.fit_ellipse(animal, 3)
         animal_idx = np.array( np.where( animal ) )
+        
         tail = animal_idx[:, np.argmax( utils.norm( np.sqrt( np.sum( np.power( np.transpose(animal_idx) - eye, 2), axis=1))) +
             utils.norm( np.dot( np.transpose(animal_idx) - eye, (x - anterior[0], y - anterior[1])))) ]
 
@@ -581,47 +590,8 @@ class Clone(object):
         else:
             self.dorsal = minor_vertex_2
             self.ventral = minor_vertex_1
-    """
-    def get_anatomical_directions(self):
-        
-        # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
-        # directions relative to the animal center
-
-        x = self.animal_x_center
-        y = self.animal_y_center
-        
-        e_x = self.eye_x_center
-        e_y = self.eye_y_center
-        theta = self.animal_theta
-        minor = self.animal_minor
-        major = self.animal_major
-
-        major_vertex_1 = (x - 0.5*major*np.sin(theta), y - 0.5*major*np.cos(theta))
-        major_vertex_2 = (x + 0.5*major*np.sin(theta), y + 0.5*major*np.cos(theta))
-
-        minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
-        minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
-
-        if self.dist((e_x, e_y), major_vertex_1) < self.dist((e_x, e_y), major_vertex_2):
-            self.anterior = major_vertex_1
-            self.posterior = major_vertex_2
-        elif self.dist((e_x, e_y), major_vertex_2) < self.dist((e_x, e_y), major_vertex_1):
-            self.anterior = major_vertex_2
-            self.posterior = major_vertex_1
- 
-        if self.dist((e_x, e_y), minor_vertex_1) < self.dist((e_x, e_y), minor_vertex_2):
-            self.ventral = minor_vertex_1
-            self.dorsal = minor_vertex_2
-        elif self.dist((e_x, e_y), minor_vertex_2) < self.dist((e_x, e_y), minor_vertex_1):
-            self.ventral = minor_vertex_2
-            self.dorsal = minor_vertex_1
-        
-        if (self.dorsal[0] < 0) or (self.dorsal[0] > 768) or (self.dorsal[1] < 0) or (self.dorsal[1] > 1024):
-            tmp = self.dorsal
-            self.dorsal = self.ventral
-            self.ventral = tmp
-    """
-    def get_orientation_vectors(self):
+   
+   def get_orientation_vectors(self):
 
         self.pos_vec = [self.animal_x_center - self.posterior[0], self.animal_y_center - self.posterior[1]]
         self.dor_vec = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
