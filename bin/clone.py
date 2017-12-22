@@ -444,13 +444,18 @@ class Clone(object):
         tx = hx[1][np.argmax(hx[0])]
         hy = np.histogram(np.ndarry.flatten(dy), bins=bins)
         ty = hy[1][np.argmax(hy[0])]
+        
         return np.logical_or.reduce( ( im<thresh_int,
             edges,
             dy<ty-0.05,
             dy>ty+0.05,
             dx<tx-0.05,
             dy>ty+0.05) )
-        
+    
+    def eye_mask(self, im, perc=0.03):
+
+        return np.where(im < np.percentile(im, perc))
+
     def fit_ellipse(self, im, chi_2):
         
         # fit an ellipse to the animal pixels
@@ -509,7 +514,11 @@ class Clone(object):
             if not el.contains_point(i): animal[i] = 0                                               
         
         self.animal_x_center, self.animal_y_center, self.animal_major, self.animal_minor, self.animal_theta = self.fit_ellipse(animal,9.21)
+    
+    def get_eye_location(self, im, thresh=0.025):
 
+        return np.mean( np.where( (im < np.percentile(im, 0.025))), axis=1)
+    
     def fit_eye_ellipse(self,im):
 
         if im.shape[2] == 4:
