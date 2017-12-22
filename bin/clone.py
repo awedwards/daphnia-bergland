@@ -432,7 +432,7 @@ class Clone(object):
     def foreground_mask(self, im, sigma=5, perc=2.5):
 
         blurred = gaussian(im, sigma=sigma)
-        edges = cv2.Canny(np.array(blurred*255, dtype=np.uint8), 0, 10)
+        edges = cv2.Canny(np.array(blurred*255, dtype=np.uint8), 5, 10)
         thresh_int = np.percentile(im, 2.5)
 
         dx, dy = np.gradient(blurred)
@@ -517,7 +517,7 @@ class Clone(object):
     
     def get_eye_location(self, im, thresh=0.025):
 
-        return np.mean( np.where( (im < np.percentile(im, 0.025))), axis=1)
+        self.eye_x_center, self.eye_y_center = np.mean( np.where( (im < np.percentile(im, 0.025))), axis=1)
     
     def fit_eye_ellipse(self,im):
 
@@ -539,6 +539,49 @@ class Clone(object):
         self.find_tail(im)
         self.find_dorsal(im)
     
+    def get_anatomical_directions(self, im):
+
+        fg = foreground_mask(im)
+        eye = (self.eye_x_center, self.eye_y_center)
+
+        x, y, major, minor = self.fit_ellipse(fg, 10)
+        self.animal_x_center, self.animal_y_center = x, y
+
+        animal = fg.copy()
+        el = matplotlib.patches.Ellipse((int(x), int(y)), int(major), int(minor), int(theta*(180/np.pi)))
+
+        points = list(zip(*(c.flat for c in np.where(animal))))
+
+        for i in points:
+            if not el.contains_point(i): animal[i] = 0
+
+        x, y, major, minor, theta = self.fit_ellipse(animal, 3)
+        
+        major_vertex_1 = (x - 0.5*major*np.sin(theta), y - 0.5*major*np.cos(theta))
+        major_vertex_2 = (x + 0.5*major*np.sin(theta), y + 0.5*major*np.cos(theta))
+
+        minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
+        minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
+
+        if self.dist(major_vertex_1, eye) < self.dist(major_vertex_2, eye):
+            self.anterior = major_vertex_1
+            self.posterior = major_vertex_2
+        else:
+            self.anterior = major_vertex_2
+            self.posterior = major_vertex_1
+
+        animal_idx = np.array( np.where( animal ) )
+        tail = animal_idx[:, np.argmax( utils.norm( np.sqrt( np.sum( np.power( np.transpose(animal_idx) - eye, 2), axis=1))),
+            utils.norm( np.dot( np.transpose(animal_idx) - eye), (x - anterior[0], y - anterior[1]))]
+
+        if self.dist( minor_vertex_1, tail ) < self.dist( minor_vertex_2, tail ):
+            self.dorsal = minor_vertex_1
+            self.ventral  minor_vertex_2
+
+        else:
+            self.dorsal = minor_vertex_2
+            self.ventral = minor_vertex_1
+    """
     def get_anatomical_directions(self):
         
         # finds the vertex points on ellipse fit corresponding to dorsal, ventral, anterior and posterior
@@ -546,6 +589,7 @@ class Clone(object):
 
         x = self.animal_x_center
         y = self.animal_y_center
+        
         e_x = self.eye_x_center
         e_y = self.eye_y_center
         theta = self.animal_theta
@@ -576,7 +620,7 @@ class Clone(object):
             tmp = self.dorsal
             self.dorsal = self.ventral
             self.ventral = tmp
-    
+    """
     def get_orientation_vectors(self):
 
         self.pos_vec = [self.animal_x_center - self.posterior[0], self.animal_y_center - self.posterior[1]]
