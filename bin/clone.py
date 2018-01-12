@@ -8,6 +8,7 @@ import cv2
 import scipy
 import scipy.ndimage
 import scipy.stats
+from skimage import measure
 from skimage.filters import gaussian
 from skimage.segmentation import active_contour
 import pickle
@@ -75,18 +76,13 @@ class Clone(object):
         if os.path.isfile(os.path.join(segdatadir, imtype + "_" + self.filebase)):
             self.seg_filepath = os.path.join(segdatadir, imtype + "_" + self.filebase)
         
-        self.background_channel = 0
-        self.animal_channel = 1
-        self.eye_channel = 2
-        self.antennae_channel = 3
-
         self.total_animal_pixels = None
         self.animal_area = None
         self.total_eye_pixels = None
         self.eye_area = None
         self.animal_length = None
         self.pedestal_size = None
-        self.pedestal_maxheight = None
+        self.pedestal_max_height = None
         self.pedestal_area = None
         self.pedestal_theta = None
         self.snake = None
@@ -128,6 +124,7 @@ class Clone(object):
         self.eye_dorsal = None
 	self.head = None
         self.tail = None
+        self.tail_tip
         self.dorsal_point = None
     
         self.analyzed = False
@@ -288,13 +285,6 @@ class Clone(object):
                 return (x[i],y[i]) 
         return
 
-    def sanitize(self,im):
-        try:
-            if im.shape[2] == 3 or im.shape[2] == 4:
-                return utils.merge_channels(im, self.animal_channel, self.eye_channel)
-        except IndexError:
-            return im
-
     def calc_pixel_to_mm(self,im):
 
         # calculates the pixel to millimeter ratio for a clone given an image of
@@ -379,83 +369,7 @@ class Clone(object):
             except ZeroDivisionError:
                 continue
         return np.mean(measurements)
-
-    def split_channels(self,im):
-        
-        # splits ilastik segmentation output into 4 channels
-        # 1 - background
-        # 2 - animal
-        # 3 - eye
-        # 4 - antennae
-
-        if not np.all(im[:,:,0]==im[:,:,1]) and not np.all(im[:,:,1]==im[:,:,2]):
-            print "Can only split segmentation images"
-            return im
-        
-        im = im[:,:,0]
-        w,h = im.shape
-        channel_ids = np.unique(im)
-        nchannels = len(channel_ids)
-        
-        arrays = []
-        for channel in channel_ids:
-            tmp = np.zeros((w,h))
-            tmp[np.where(im==channel)] = 1
-            arrays.append(tmp)
-        
-        return np.stack(arrays,axis=2)
-
-    def calculate_area(self, im, part):
-        
-        # input:  segmentation image
-        # merge animal and eye channels 
-        
-        if part == "animal":
-            im = self.sanitize(im)
-        elif part == "eye":
-            im = im[:, :, self.eye_channel]
-        try:     
-            # count total number of pixels and divide by conversion factor
-            setattr(self, "total_" + part + "_pixels", len(np.flatnonzero(im)))
-            setattr(self, part + "_area", getattr(self, "total_" + part + "_pixels")/(self.pixel_to_mm**2))
-        
-        except Exception as e:
-            print "Error while calculating area: " + str(e)
-
-    def calculate_length(self):
-
-        try:
-            self.animal_length = self.dist(self.head,self.tail)/self.pixel_to_mm
-        except Exception as e:
-            print e
-    
-    def foreground_mask(self, im, sigma=5, perc=2.5):
-
-        blurred = gaussian(im, sigma=sigma)
-        edges = cv2.Canny(np.array(blurred*255, dtype=np.uint8), 5, 10)
-        thresh_int = np.percentile(im, 2.5)
-
-        dx, dy = np.gradient(blurred)
-        dx = utils.norm(dx)
-        dy = utils.norm(dy)
-
-        bins = np.linspace(0, 1, 100)
-        hx = np.histogram(np.ndarray.flatten(dx), bins=bins)
-        tx = hx[1][np.argmax(hx[0])]
-        hy = np.histogram(np.ndarray.flatten(dy), bins=bins)
-        ty = hy[1][np.argmax(hy[0])]
-        
-        return np.logical_or.reduce( ( im<thresh_int,
-            edges,
-            dy<ty-0.05,
-            dy>ty+0.05,
-            dx<tx-0.05,
-            dy>ty+0.05) )
-    
-    def eye_mask(self, im, perc=0.03):
-
-        return np.where(im < np.percentile(im, perc))
-
+ 
     def fit_ellipse(self, im, chi_2):
         
         # fit an ellipse to the animal pixels
@@ -498,98 +412,128 @@ class Clone(object):
             print "Error fitting ellipse: " + str(e)
             return
 
-    def fit_animal_ellipse(self,im):
-
-        # this method cleans up any obviously misclassified pixels and re-calculates ellipse
-
-        im = self.sanitize(im)
-
-        self.animal_x_center, self.animal_y_center, self.animal_major, self.animal_minor, self.animal_theta = self.fit_ellipse(im,9.21)
-
-        animal = im.copy()
-        el = matplotlib.patches.Ellipse((int(self.animal_x_center),int(self.animal_y_center)), int(self.animal_major), int(self.animal_minor),int(self.animal_theta*(180/np.pi)))
-        points = list(zip(*(c.flat for c in np.where(animal))))
+    def get_eye_location(self, im, threshold=0.025):
         
-        for i in points:
-            if not el.contains_point(i): animal[i] = 0                                               
+        eye = np.where((im < np.percentile(im, threshold)))
+        self.eye_x_center, self.eye_y_center = np.mean( eye, axis=1)
+    
+    def get_eye_pixels(self, im):
+
+        hc = self.high_contrast(im)
+        edges = cv2.Canny(np.array(255*gaussian(hc, 1), dtype=np.uint8), 0, 50)/255
+
+        to_check = [(int(self.eye_x_center), int(self.eye_y_center))]
+        checked = []
+
+        count = 0
+
+        while len(to_check)>0:
+            pt = to_check[0]
+            if (edges[pt[0]-1, pt[1]] == 0) and (edges[pt[0]+1, pt[1]] == 0) and (edges[pt[0], pt[1]-1] == 0) and (edges[pt[0], pt[1]+1] == 0):
+                count +=1
+                im[pt[0], pt[1]] = 0
+                if ((pt[0]-1, pt[1]) not in checked) and ((pt[0]-1, pt[1]) not in to_check):
+                        to_check.append((pt[0]-1, pt[1]))
+                if ((pt[0]+1, pt[1]) not in checked) and ((pt[0]+1, pt[1]) not in to_check):
+                        to_check.append((pt[0]+1, pt[1]))
+                if ((pt[0], pt[1]-1) not in checked) and ((pt[0], pt[1]-1) not in to_check):
+                        to_check.append((pt[0], pt[1]-1))
+                if ((pt[0], pt[1]+1) not in checked) and ((pt[0], pt[1]+1) not in to_check):
+                        to_check.append((pt[0], pt[1]+1))
+            
+            checked.append(to_check.pop(0))
+
+        self.total_eye_pixels = count
+    
+    def get_eye_area(self):
+
+        self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
+
+    def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7):
         
-        self.animal_x_center, self.animal_y_center, self.animal_major, self.animal_minor, self.animal_theta = self.fit_ellipse(animal,9.21)
-    
-    def get_eye_location(self, im, thresh=0.025):
+        ex, ey = self.eye_x_center, self.eye_y_center
 
-        self.eye_x_center, self.eye_y_center = np.mean( np.where( (im < np.percentile(im, 0.025))), axis=1)
-    
-    def fit_eye_ellipse(self,im):
+        high_contrast_im = self.high_contrast(im)
 
-        if im.shape[2] == 4:
-            im = im[:, :, self.eye_channel]
+        edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255
+        edge_labels = measure.label(edge_image, background = 0)
 
-        self.eye_x_center, self.eye_y_center, self.eye_major, self.eye_minor, self.eye_theta = self.fit_ellipse(im, 4.6)
-
-    def find_body_landmarks(self, im):
+        edge_copy = edge_image.copy()
         
-        
-        # before merging channels, find eye landmarks:
-        #self.find_eye_vertex(segim, "dorsal")
-        #self.find_eye_vertex(segim, "anterior")
-        self.head = self.eye_x_center, self.eye_y_center
-    
-        self.find_tail(im)
-        self.find_dorsal(im)
-    
-    def get_anatomical_directions(self, im):
+        labels = np.ndarray.flatten(np.argwhere(np.bincount(np.ndarray.flatten(edge_labels[np.nonzero(edge_labels)])) > cc_threhsold))
+        big_cc = np.isin(edge_labels, labels) 
+        big_cc_x = np.where(big_cc)[0]
+        big_cc_y = np.where(big_cc)[1]
 
-        fg = self.foreground_mask(im)
-        eye = (self.eye_x_center, self.eye_y_center)
+        idx = np.argmax(np.linalg.norm(np.vstack(np.where(big_cc)).T - np.array((self.eye_x_center, self.eye_y_center)), axis=1))
+        tx = big_cc_x[idx]
+        ty = big_cc_y[idx]
 
-        x, y, major, minor, theta = self.fit_ellipse(fg, 10)
-        self.animal_x_center, self.animal_y_center = x, y
+        self.tail_tip = (tx, ty)
+
+        cx, cy = (tx + ex)/2, (ty + ey)/2
+
+        hx, hy = 1.2*(ex - cx) + cx, 1.2*(ey - cy) + cy
+        self.head = (hx, hy)
+
+        vd1 = cx + a*(hy - cy), cy + a*(cx - hx)
+        vd2 = cx - a*(hy - cy), cy - a*(cx - hx)
+
+        edges_x = np.where(edge_image)[0]
+        edges_y = np.where(edge_image)[1]
+
+        #TO DO: Vectorize
+        mask_x1 = []
+        mask_y1 = []
+        mask_x2 = []
+        mask_y2 = []
+
+        for i in xrange(len(edges_x)):
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx, hy, vd1[0], vd1[1]]):
+                mask_x1.append(edges_x[i])
+                mask_y1.append(edges_y[i])
+            elif self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx, hy, vd2[0], vd2[1]]):
+                mask_x2.append(edges_x[i])
+                mask_y2.append(edges_y[i])
+
+        edge_copy[[mask_x1, mask_y1]] = 0
+        edge_copy[[mask_x2, mask_y2]] = 0
+
+        self.get_anatomical_directions(edge_copy)
+
+        if self.dist( self.ventral, vd1 ) < self.dist( self.ventral, vd2 ):
+            edge_image[[mask_x1, mask_y1]] = 0
+        else:
+            edge_image[[mask_x2, mask_y2]] = 0
+
+        x, y, major, minor, theta = self.fit_ellipse(edge_image, 3)
+
+    def get_anatomical_directions(self, im, sigma=3):
+
+        x, y, major, minor, theta = self.fit_ellipse(im, sigma)
 
         major_vertex_1 = (x - 0.5*major*np.sin(theta), y - 0.5*major*np.cos(theta))
         major_vertex_2 = (x + 0.5*major*np.sin(theta), y + 0.5*major*np.cos(theta))
 
         minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
         minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
-
-        if self.dist(major_vertex_1, eye) < self.dist(major_vertex_2, eye):
+        
+        if self.dist( major_vertex_1, self.head) < self.dist(major_vertex_2, self.head):
             self.anterior = major_vertex_1
             self.posterior = major_vertex_2
         else:
             self.anterior = major_vertex_2
             self.posterior = major_vertex_1
 
-        animal = fg.copy()
-        el = matplotlib.patches.Ellipse((int(x), int(y)), 1.5*int(major), 1.5*int(minor), int(theta*(180/np.pi)))
-
-        points = np.array( np.where(animal) )
-        cos_angle = np.cos(np.radians(180.-theta*(180/np.pi)))
-        sin_angle = np.sin(np.radians(180.-theta*(180/np.pi)))
-
-        xc = points[:, 0] - x
-        yc = points[:, 1] -y
-
-        xct = xc * cos_angle - yc * sin_angle
-        yct = xc * sin_angle + yc * cos_angle
-
-        rad_cc = (xct**2/(major/2)**2) + (yct**2/(minor/2)**2)
-
-        animal[np.where(rad_cc > 1)] = 0
-
-        x, y, major, minor, theta = self.fit_ellipse(animal, 3)
-        animal_idx = np.array( np.where( animal ) )
-        
-        tail = animal_idx[:, np.argmax( utils.norm( np.sqrt( np.sum( np.power( np.transpose(animal_idx) - eye, 2), axis=1))) +
-            utils.norm( np.dot( np.transpose(animal_idx) - eye, (x - anterior[0], y - anterior[1])))) ]
-
-        if self.dist( minor_vertex_1, tail ) < self.dist( minor_vertex_2, tail ):
+        if self.dist( minor_vertex_1, self.tail_tip ) < self.dist(minor_vertex_2, self.tail_tip):
             self.dorsal = minor_vertex_1
-            self.ventral  minor_vertex_2
-
+            self.ventral = minor_vertex_2
         else:
             self.dorsal = minor_vertex_2
             self.ventral = minor_vertex_1
-   
-   def get_orientation_vectors(self):
+
+
+    def get_orientation_vectors(self):
 
         self.pos_vec = [self.animal_x_center - self.posterior[0], self.animal_y_center - self.posterior[1]]
         self.dor_vec = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
@@ -776,12 +720,14 @@ class Clone(object):
         tail = self.tail
         dp = self.dorsal_point
         
+        w, h = im.shape
+
         if hc:
             # we use Contrast Limited Adaptive Histogram Equalization to 
             # increase contrast around pedestal for better edge detection
             
-            bb_x = ( int(np.min(ps[:,1])), int(np.max(ps[:,1])) )
-            bb_y = ( int(np.min(ps[:,0])), int(np.max(ps[:,0])) )
+            bb_x = ( int(np.max([np.min(ps[:,1]), 0])), int(np.min([np.max(ps[:,1]), w]) ))
+            bb_y = ( int(np.max([np.min(ps[:,0]), 0])), int(np.min([np.max(ps[:,0]) ,h]) ))
 
             cropped = im[bb_x[0]:bb_x[1], bb_y[0]:bb_y[1]]
             clahe = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(8,8))
@@ -835,7 +781,6 @@ class Clone(object):
             if self.dist(edge[i, :], avg) < prune_threshold:
             #    print edge[i,:], init[i]
                 pruned_edge.append((i, self.dist(edge[i, :], init[i])))
-        
         #pruned_edge_normalized = [pruned_edge[:,0], pruned_edge[:,1]/(self.pixel_to_mm/self.animal_length)]
         return pruned_edge
     
@@ -844,7 +789,7 @@ class Clone(object):
         self.pedestal_max_height = np.max(data[:,1])
 
     def get_pedestal_area(self, data):
-        
+        print data.shape 
         self.pedestal_area = np.sum(0.5*(self.dist(self.head, self.dorsal_point)/400)*(data[1:][:,0] - data[0:-1][:,0])*(data[1:][:,1] + data[0:-1][:,1]))
         
     def get_pedestal_theta(self, data, n=200):
@@ -888,3 +833,30 @@ class Clone(object):
         dir_x, dir_y = getattr(self, direction[0:3] + "_vec")
 
         return dir_x*dx + dir_y*dy
+
+    def high_contrast(self, im):
+        
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        return clahe.apply(im)
+
+    def intersect(self, s1, s2):
+
+        x1, y1, x2, y2 = s1
+        x3, y3, x4, y4 = s2
+
+        if (max([x1, x2]) < min([x3, x4])): return False
+
+        m1 = (y1 - y2)/(x1 - x2)
+        m2 = (y3 - y4)/(x3 - x4)
+
+        if (m1 == m2): return False
+        
+        b1 = y1 - m1*x1
+        b2 = y3 - m2*x3
+
+        xa = (b2 - b1) / (m1 - m2)
+
+        if ( (xa < max( [min([x1, x2]), min([x3, x4])] )) or (xa > min( [max([x1, x2]), max([x3, x4])] )) ):
+            return False
+
+        return True
