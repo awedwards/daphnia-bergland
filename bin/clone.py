@@ -412,18 +412,18 @@ class Clone(object):
             print "Error fitting ellipse: " + str(e)
             return
 
-    def get_eye_location(self, im, threshold=0.025):
-        
-        eye = np.where((im < np.percentile(im, threshold)))
-        self.eye_x_center, self.eye_y_center = np.mean( eye, axis=1)
-    
-    def get_eye_pixels(self, im):
+    def find_eye(self, im):
 
         hc = self.high_contrast(im)
-        edges = cv2.Canny(np.array(255*gaussian(hc, 1), dtype=np.uint8), 0, 50)/255
+        edges = cv2.Canny(np.array(255*gaussian(hc, 0.5), dtype=np.uint8), 0, 50)/255
 
-        to_check = [(int(self.eye_x_center), int(self.eye_y_center))]
+        # initialize eye center
+        eye_im = np.where((im < np.percentile(im, 0.025)))
+        ex, ey = np.mean(eye_im, axis=1)
+
+        to_check = [(int(ex), int(ey))]
         checked = []
+        eye = []
 
         count = 0
 
@@ -431,7 +431,7 @@ class Clone(object):
             pt = to_check[0]
             if (edges[pt[0]-1, pt[1]] == 0) and (edges[pt[0]+1, pt[1]] == 0) and (edges[pt[0], pt[1]-1] == 0) and (edges[pt[0], pt[1]+1] == 0):
                 count +=1
-                im[pt[0], pt[1]] = 0
+                eye.append((pt[0], pt[1]))
                 if ((pt[0]-1, pt[1]) not in checked) and ((pt[0]-1, pt[1]) not in to_check):
                         to_check.append((pt[0]-1, pt[1]))
                 if ((pt[0]+1, pt[1]) not in checked) and ((pt[0]+1, pt[1]) not in to_check):
@@ -443,13 +443,14 @@ class Clone(object):
             
             checked.append(to_check.pop(0))
 
+        self.eye_x_center, self.eye_y_center = np.mean(np.array(eye), axis=0)
         self.total_eye_pixels = count
     
     def get_eye_area(self):
 
         self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
 
-    def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7):
+    def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.8, b=20):
         
         ex, ey = self.eye_x_center, self.eye_y_center
 
@@ -473,11 +474,14 @@ class Clone(object):
 
         cx, cy = (tx + ex)/2, (ty + ey)/2
 
-        hx, hy = 1.2*(ex - cx) + cx, 1.2*(ey - cy) + cy
-        self.head = (hx, hy)
+        hx1, hy1 = 1.2*(ex - cx) + cx, 1.2*(ey - cy) + cy
 
-        vd1 = cx + a*(hy - cy), cy + a*(cx - hx)
-        vd2 = cx - a*(hy - cy), cy - a*(cx - hx)
+        vd1 = cx + a*(hy1 - cy), cy + a*(cx - hx1)
+        vd2 = cx - a*(hy1 - cy), cy - a*(cx - hx1)
+
+        hx2, hy2 = 1.125*(ex - cx) + cx, 1.125*(ey - cy) + cy
+        top1 = hx2 + b*(ey - hy2), hy2 + b*(hx2 - ex)
+        top2 = hx2 - b*(ey - hy2), hy2 - b*(hx2 - ex)
 
         edges_x = np.where(edge_image)[0]
         edges_y = np.where(edge_image)[1]
@@ -487,26 +491,32 @@ class Clone(object):
         mask_y1 = []
         mask_x2 = []
         mask_y2 = []
+        top_mask_x = []
+        top_mask_y = []
 
         for i in xrange(len(edges_x)):
-            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx, hy, vd1[0], vd1[1]]):
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx1, hy1, vd1[0], vd1[1]]):
                 mask_x1.append(edges_x[i])
                 mask_y1.append(edges_y[i])
-            elif self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx, hy, vd2[0], vd2[1]]):
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx1, hy1, vd2[0], vd2[1]]):
                 mask_x2.append(edges_x[i])
                 mask_y2.append(edges_y[i])
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [top1[0], top1[1], top2[0], top2[1]]):
+                top_mask_x.append(edges_x[i])
+                top_mask_y.append(edges_y[i])
 
         edge_copy[[mask_x1, mask_y1]] = 0
         edge_copy[[mask_x2, mask_y2]] = 0
+        edge_copy[[top_mask_x, top_mask_y]] = 0
 
         self.get_anatomical_directions(edge_copy)
 
         if self.dist( self.ventral, vd1 ) < self.dist( self.ventral, vd2 ):
-            edge_image[[mask_x1, mask_y1]] = 0
+            self.ventral_mask_endpoints = ((hx1, hy1), vd1)
         else:
-            edge_image[[mask_x2, mask_y2]] = 0
+            self.ventral_mask_endpoints = ((hx1, hy1), vd1)
 
-        x, y, major, minor, theta = self.fit_ellipse(edge_image, 3)
+        self.anterior_mask_endpoints = (top1, top2)
 
     def get_anatomical_directions(self, im, sigma=3):
 
@@ -518,7 +528,7 @@ class Clone(object):
         minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
         minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
         
-        if self.dist( major_vertex_1, self.head) < self.dist(major_vertex_2, self.head):
+        if self.dist( major_vertex_1, (self.eye_x_center, self.eye_y_center)) < self.dist(major_vertex_2, (self.eye_x_center, self.eye_y_center)):
             self.anterior = major_vertex_1
             self.posterior = major_vertex_2
         else:
