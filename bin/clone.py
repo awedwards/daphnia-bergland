@@ -122,9 +122,9 @@ class Clone(object):
         # these are actual points on the animal
 
         self.eye_dorsal = None
-	self.head = None
+        self.head = None
         self.tail = None
-        self.tail_tip
+        self.tail_tip = None
         self.dorsal_point = None
     
         self.analyzed = False
@@ -450,7 +450,7 @@ class Clone(object):
 
         self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
 
-    def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.8, b=20):
+    def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7, b=20):
         
         ex, ey = self.eye_x_center, self.eye_y_center
 
@@ -513,9 +513,23 @@ class Clone(object):
 
         if self.dist( self.ventral, vd1 ) < self.dist( self.ventral, vd2 ):
             self.ventral_mask_endpoints = ((hx1, hy1), vd1)
+            self.dorsal_mask_endpoints = ((hx1, hy1), vd2)
         else:
-            self.ventral_mask_endpoints = ((hx1, hy1), vd1)
+            self.ventral_mask_endpoints = ((hx1, hy1), vd2)
+            self.dorsal_mask_endpoints = ((hx1, hy1), vd1)
+        
+        dx, dy = self.dorsal_mask_endpoints[1]
 
+        edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma=1), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255
+        ix, iy = np.linspace(dy, hy1, 500), np.linspace(dx, hx1, 500)
+        zi = pd.rolling_mean( scipy.ndimage.map_coordinates(edge_image, np.vstack((ix, iy)), mode="nearest"), 4)
+
+        for i in xrange(10, len(zi-250)):
+            if zi[i] > 0.5:
+                dx, dy = ix[i-20], iy[i-20]
+                break
+
+        self.dorsal_mask_endpoints = (self.tail_tip, (dx, dy))
         self.anterior_mask_endpoints = (top1, top2)
 
     def get_anatomical_directions(self, im, sigma=3):
