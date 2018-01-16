@@ -273,11 +273,9 @@ def write_clone(clone, cols, path, outfile):
 def analyze_clone(clone, flags, pedestal_data=None):
 
     try:
-        if ("doBodyLandmarks" in flags) or ("doPedestalScore" in flags):
-            im = cv2.imread(clone.filepath)
 
-        split = clone.split_channels( cv2.imread( clone.seg_filepath ) )
-        
+        im = cv2.imread(clone.filepath)
+ 
         if "getPxtomm" in flags:
             print "Extracting pixel-to-mm conversion factor"
             try:
@@ -286,21 +284,22 @@ def analyze_clone(clone, flags, pedestal_data=None):
             except Exception as e:
                 print "Could not extract because: " + str(e)
 
-        if "doAreaCalc" in flags:
-            print "Calculating area."
-            clone.calculate_area(split, "animal")
-            clone.calculate_area(split, "eye")
-        if "doAnimalEllipseFit" in flags:
-            print "Fitting ellipse to body."
-            clone.fit_animal_ellipse(split)
+        if "doEyeAreaCalc" in flags:
+            print "Calculating area for eye."
+            clone.find_eye(im)
+            clone.get_eye_area()
 
-        if "doEyeEllipseFit" in flags:
-            print "Fitting ellipse to eye."
-            clone.fit_eye_ellipse(split)
+        if "doAnimalAreaCalc" in flags:
+            print "Calculating area for animal."
+            clone.count_animal_pixels(im)
+            clone.get_animal_area()
 
-        if "doOrientation" in flags:
-            print "Finding animal orientation."
-            clone.get_anatomical_directions()
+        if "doAntennaMasking" in flags:
+            print "Masking antenna and fitting ellipse to animal."
+            clone.mask_antenna(im)
+
+        if "getOrientationVectors" in flags:
+            print "Calculating orientation vectors."
             clone.get_orientation_vectors()
 
         if "doBodyLandmarks" in flags:

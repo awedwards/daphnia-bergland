@@ -23,12 +23,11 @@ flgs = []
 if analysis == True:
     flgs.append("getPxtomm")
     flgs.append("doAreaCalc")
-    flgs.append("doAnimalEllipseFit")
-    flgs.append("doEyeEllipseFit")
+    flgs.append("doAntennaMasking")
     flgs.append("doBodyLandmarks")
-    flgs.append("doLength")
-    flgs.append("doOrientation")
-    flgs.append("doPedestalScore")
+    #flgs.append("doLength")
+    flgs.append("getOrientationVectors")
+    #flgs.append("doPedestalScore")
 
 print "Loading clone data\n"
 
@@ -68,19 +67,22 @@ cols = ["filebase",
         "animal_theta",
         "eye_x_center",
         "eye_y_center",
-        "eye_major",
-        "eye_minor",
-        "eye_theta",
         "anterior",
         "posterior",
         "dorsal",
         "ventral",
-	"ant_vec",
-	"pos_vec",
-	"dor_vec",
-	"ven_vec",
+	    "ant_vec",
+	    "pos_vec",
+	    "dor_vec",
+	    "ven_vec",
+        "eye_dorsal",
         "head",
-        "tail"]
+        "tail",
+        "tail_tip",
+        "ventral_mask_endpoints",
+        "dorsal_mask_endpoints",
+        "anterior_mask_endpoints",
+        "posterior_mask_endpoints"]
 
 try:
     if os.stat(os.path.join(ANALYSISDIR, outfile)).st_size == 0:

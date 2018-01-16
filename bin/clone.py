@@ -442,15 +442,72 @@ class Clone(object):
                         to_check.append((pt[0], pt[1]+1))
             
             checked.append(to_check.pop(0))
-
+        
         self.eye_x_center, self.eye_y_center = np.mean(np.array(eye), axis=0)
+        
+        try:
+            self.find_eye_vertex(eye, "dorsal")
+        except Exception:
+            pass
+
         self.total_eye_pixels = count
     
     def get_eye_area(self):
 
         self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
 
-    def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7, b=20):
+    def count_animal_pixels(self, im, sigma=1.25, canny_thresholds[0,50]):
+        
+        high_contrast_im = self.high_contrast_im
+        edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255
+
+        edges_x, ey = np.where(edge_image)[0], np.where(edge_image)[1]
+        cx, cy = self.animal_x_center, self.animal_y_center
+
+        for i in xrange(len(ex)):
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx1, hy1, vd1[0], vd1[1]]):
+                edge_image[edges_x[i], edges_y[i]] = 0
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [top1[0], top1[1], top2[0], top2[1]]):
+                edge_image[edges_x[i], edges_y[i]] = 0
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx1, hy1, vd2[0], vd2[1]]):
+                edge_image[edges_x[i], edges_y[i]] = 0
+            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [bot1[0], bot1[1], bot2[0], bot2[1]]):
+                edge_image[edges_x[i], edges_y[i]] = 0
+
+        new_edges = np.zeros(edge_image.shape)
+
+        for row in xrange(edge_image.shape[0]):
+            try:
+                new_edges[row, np.min( np.where( edge_image[row,:]) ) ] = 1
+            except ValueError: pass
+
+            try:
+                new_edges[row, np.max( np.where( edge_image[row,:]) ) ] = 1
+            except ValueError: pass
+
+        for col in xrange(edge_image.shape[1]):
+            try:
+                new_edges[np.min( np.where( edge_image[:, col] ) ), col] = 1
+            except ValueError: pass
+            
+            try:
+                new_edges[np.max( np.where( edge_image[:, col] ) ), col] = 1
+            except ValueError: pass
+
+        ex = np.where(new_edges)[0]
+        ey = np.where(new_edges)[1]
+        
+        area = 0
+        for i in xrange(len(ex), 2):
+            area += ex[i+1]*(y[i+2]-y[i]) + y[i+1]*(x[i]-x[i+2])
+        
+        self.total_animal_pixels = area/2
+        
+    def get_animal_area(self):
+
+        self.animal_area = self.total_animal_pixels/np.power(self.pixel_to_mm, 2)
+
+    def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7, b=20, c=2):
         
         ex, ey = self.eye_x_center, self.eye_y_center
 
@@ -482,6 +539,10 @@ class Clone(object):
         hx2, hy2 = 1.125*(ex - cx) + cx, 1.125*(ey - cy) + cy
         top1 = hx2 + b*(ey - hy2), hy2 + b*(hx2 - ex)
         top2 = hx2 - b*(ey - hy2), hy2 - b*(hx2 - ex)
+
+        clone.tail = 0.4*cx + 0.6*clone.tail_tip[0], 0.4*cy + 0.6*clone.tail_tip[1]
+        bot1 = clone.tail[0] + c*(clone.tail_tip[1] - clone.tail[1]), clone.tail[1] + c*(clone.tail_tip[0] - clone.tail[0])
+        bot2 = clone.tail[0] - c*(clone.tail_tip[1] - clone.tail[1]), clone.tail[1] - c*(clone.tail_tip[0] - clone.tail[0])
 
         edges_x = np.where(edge_image)[0]
         edges_y = np.where(edge_image)[1]
@@ -531,8 +592,9 @@ class Clone(object):
 
         self.dorsal_mask_endpoints = (self.tail_tip, (dx, dy))
         self.anterior_mask_endpoints = (top1, top2)
+        self.posterior_mask_endpoints = (bot1, bot2)
 
-    def get_anatomical_directions(self, im, sigma=3):
+    def get_anatomical_directions(self, im, sigma=3, flag="animal"):
 
         x, y, major, minor, theta = self.fit_ellipse(im, sigma)
 
@@ -542,6 +604,7 @@ class Clone(object):
         minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
         minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
         
+
         if self.dist( major_vertex_1, (self.eye_x_center, self.eye_y_center)) < self.dist(major_vertex_2, (self.eye_x_center, self.eye_y_center)):
             self.anterior = major_vertex_1
             self.posterior = major_vertex_2
@@ -555,7 +618,6 @@ class Clone(object):
         else:
             self.dorsal = minor_vertex_2
             self.ventral = minor_vertex_1
-
 
     def get_orientation_vectors(self):
 
@@ -571,17 +633,12 @@ class Clone(object):
         if vertex not in ["dorsal", "ventral", "anterior", "posterior"]:
             raise( "Choose different (and real) direction")
 
-        try:
-            if im.shape[2] == 4 or im.shape[2] == 3:
-                im = im[:,:,self.eye_channel]
-
-        except IndexError:
-            pass
-
         body_vertex = getattr(self, vertex)
 
         if body_vertex == None:
+
             self.get_anatomical_directions()
+
         else:
 
             d_y = body_vertex[1] - self.animal_y_center
