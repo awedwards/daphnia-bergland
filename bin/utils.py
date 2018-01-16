@@ -122,7 +122,7 @@ def load_pedestal_data(filepath):
 
     return data
 
-def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bmp"):
+def build_clonelist(datadir, analysisdir, inductiondatadir, ext=".bmp"):
     
     # input: paths to data, segmented data and metadata files
 
@@ -138,7 +138,7 @@ def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bm
         if f.startswith("._"):
             continue
         
-        elif f.endswith(ext) and f.startswith("full_") and os.path.isfile(os.path.join(segdatadir, f)):
+        elif f.endswith(ext) and f.startswith("full_"):
             
             filebase = f[5:]
 
@@ -152,9 +152,6 @@ def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bm
                 else:
                     induction = None
                 
-                if imagetype == "full":
-                    segdir = segdatadir
-
                 clones[barcode][datetime][imagetype] = Clone( filebase,
                         imagetype,
                         barcode,
@@ -164,8 +161,7 @@ def build_clonelist(datadir, segdatadir, analysisdir, inductiondatadir, ext=".bm
                         rig,
                         datetime,
                         induction,
-                        datadir,
-                        segdir)
+                        datadir)
         
                 if imagetype == "close":
                     clones[barcode][datetime][imagetype].pixel_to_mm = 1105.33
@@ -198,8 +194,7 @@ def df_to_clonelist(df, datadir = None, segdir = None):
                 row['rig'],
                 row['datetime'],
                 row['inductiondate'],
-                datadir,
-                segdir)
+                datadir)
 
         for k in row.keys():
             try:
@@ -224,8 +219,7 @@ def dfrow_to_clonelist(df, irow, datadir = None, segdir = None):
                 row['rig'],
                 row['datetime'],
                 row['inductiondate'],
-                datadir,
-                segdir)
+                datadir)
 
 def update_clone_list(clones, loadedclones):
 

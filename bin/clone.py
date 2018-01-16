@@ -18,7 +18,7 @@ from collections import defaultdict
 
 class Clone(object):
     
-    def __init__(self,filebase,imtype,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir,segdatadir):
+    def __init__(self,filebase,imtype,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir):
         
         self.imtype = imtype
         self.cloneid = cloneid
@@ -73,9 +73,6 @@ class Clone(object):
         else:
             self.micro_filepath = None
 
-        if os.path.isfile(os.path.join(segdatadir, imtype + "_" + self.filebase)):
-            self.seg_filepath = os.path.join(segdatadir, imtype + "_" + self.filebase)
-        
         self.total_animal_pixels = None
         self.animal_area = None
         self.total_eye_pixels = None
@@ -456,7 +453,7 @@ class Clone(object):
 
         self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
 
-    def count_animal_pixels(self, im, sigma=1.25, canny_thresholds[0,50]):
+    def count_animal_pixels(self, im, sigma=1.25, canny_thresholds=[0,50]):
         
         high_contrast_im = self.high_contrast_im
         edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255

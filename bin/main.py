@@ -7,8 +7,6 @@ import cv2
 import cPickle
 
 DATADIR = "/mnt/spicy_4/daphnia/data"
-SEGDATADIR = "/mnt/spicy_4/daphnia/02_simplesegmentation"
-CLOSESEGDATADIR = "/mnt/spicy_4/daphnia/analysis/simplesegmentation_close"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
 INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 ext = '.bmp'
@@ -34,14 +32,14 @@ print "Loading clone data\n"
 
 try:
     df = utils.csv_to_df(os.path.join(ANALYSISDIR, outfile))
-    loaded = utils.df_to_clonelist(df, datadir=DATADIR, segdir=SEGDATADIR)
-    clones = utils.build_clonelist(DATADIR, SEGDATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
+    loaded = utils.df_to_clonelist(df, datadir=DATADIR)
+    clones = utils.build_clonelist(DATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
     clones = utils.update_clone_list(clones, loaded)
     print "Successfully updated clone list"
 
 except (AttributeError, IOError):
     
-    clones = utils.build_clonelist(DATADIR, SEGDATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
+    clones = utils.build_clonelist(DATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
 
 cols = ["filebase",
         "barcode",
@@ -71,10 +69,10 @@ cols = ["filebase",
         "posterior",
         "dorsal",
         "ventral",
-	    "ant_vec",
-	    "pos_vec",
-	    "dor_vec",
-	    "ven_vec",
+	"ant_vec",
+	"pos_vec",
+	"dor_vec",
+	"ven_vec",
         "eye_dorsal",
         "head",
         "tail",
@@ -87,7 +85,7 @@ cols = ["filebase",
 try:
     if os.stat(os.path.join(ANALYSISDIR, outfile)).st_size == 0:
         raise IOError
-except IOError:
+except (IOError, OSError):
     print "Starting new output file"
     with open(os.path.join(ANALYSISDIR, outfile), "wb+") as f:
         f.write( "\t".join(cols) + "\n")
