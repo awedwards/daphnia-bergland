@@ -20,12 +20,11 @@ flgs = []
 
 if analysis == True:
     flgs.append("getPxtomm")
-    flgs.append("doAreaCalc")
+    flgs.append("doEyeAreaCalc")
     flgs.append("doAntennaMasking")
+    flgs.append("doAnimalAreaCalc")
     flgs.append("doBodyLandmarks")
-    #flgs.append("doLength")
     flgs.append("getOrientationVectors")
-    #flgs.append("doPedestalScore")
 
 print "Loading clone data\n"
 

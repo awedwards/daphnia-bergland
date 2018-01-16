@@ -85,11 +85,6 @@ class Clone(object):
         self.snake = None
         self.pixel_to_mm = None
         
-        #if imtype == "full":
-        #    try:
-        #        self.pixel_to_mm = self.calc_pixel_to_mm(cv2.imread(self.micro_filepath))
-        #    except Exception as e:
-        #        print "Could not calculate pixel-to-mm conversion because of the following error: " + str(e)
 
         self.animal_x_center = None
         self.animal_y_center = None
@@ -115,6 +110,12 @@ class Clone(object):
         self.pos_vec = None
         self.dor_vec = None
         self.ven_vec = None
+
+        # endpoints for masking antenna
+        self.ventral_mask_endpoints = None
+        self.dorsal_mask_endpoints = None
+        self.anterior_mask_endpoints = None
+        self.posterior_mask_endpoints = None
 
         # these are actual points on the animal
 
@@ -458,10 +459,10 @@ class Clone(object):
         high_contrast_im = self.high_contrast_im
         edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255
 
-        edges_x, ey = np.where(edge_image)[0], np.where(edge_image)[1]
+        edges_x, edges_y = np.where(edge_image)[0], np.where(edge_image)[1]
         cx, cy = self.animal_x_center, self.animal_y_center
 
-        for i in xrange(len(ex)):
+        for i in xrange(len(edges_x)):
             if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx1, hy1, vd1[0], vd1[1]]):
                 edge_image[edges_x[i], edges_y[i]] = 0
             if self.intersect([cx, cy, edges_x[i], edges_y[i]], [top1[0], top1[1], top2[0], top2[1]]):
@@ -601,6 +602,7 @@ class Clone(object):
         minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
         minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
         
+        self.animal_x_center, self.animal_y_center = x, y
 
         if self.dist( major_vertex_1, (self.eye_x_center, self.eye_y_center)) < self.dist(major_vertex_2, (self.eye_x_center, self.eye_y_center)):
             self.anterior = major_vertex_1
