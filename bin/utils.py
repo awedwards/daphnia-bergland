@@ -266,39 +266,36 @@ def write_clone(clone, cols, path, outfile):
 
 def analyze_clone(clone, flags, pedestal_data=None):
 
-    try:
+    #try:
 
-        im = cv2.imread(clone.filepath)
- 
-        if "getPxtomm" in flags:
-            print "Extracting pixel-to-mm conversion factor"
-            try:
-                micro = cv2.imread(clone.micro_filepath)
-                clone.pixel_to_mm = clone.calc_pixel_to_mm(micro)
-            except Exception as e:
-                print "Could not extract because: " + str(e)
+    im = cv2.imread(clone.filepath, cv2.IMREAD_GRAYSCALE)
 
+    if "getPxtomm" in flags:
+        print "Extracting pixel-to-mm conversion factor"
+        try:
+            micro = cv2.imread(clone.micro_filepath)
+            clone.pixel_to_mm = clone.calc_pixel_to_mm(micro)
+        except Exception as e:
+            print "Could not extract because: " + str(e)
+    if clone.pixel_to_mm is not None:
         if "doEyeAreaCalc" in flags:
             print "Calculating area for eye."
             clone.find_eye(im)
             clone.get_eye_area()
+
+
+        if "doAntennaMasking" in flags:
+            print "Masking antenna and fitting ellipse to animal."
+            clone.mask_antenna(im)
 
         if "doAnimalAreaCalc" in flags:
             print "Calculating area for animal."
             clone.count_animal_pixels(im)
             clone.get_animal_area()
 
-        if "doAntennaMasking" in flags:
-            print "Masking antenna and fitting ellipse to animal."
-            clone.mask_antenna(im)
-
         if "getOrientationVectors" in flags:
             print "Calculating orientation vectors."
             clone.get_orientation_vectors()
-
-        if "doBodyLandmarks" in flags:
-            print "Finding body landmarks."
-            clone.find_body_landmarks(im, split)
 
         if "doLength" in flags:
             print "Calculating length"
@@ -314,5 +311,5 @@ def analyze_clone(clone, flags, pedestal_data=None):
 
             except KeyError:
                 print "No pedestal data for clone " + clone.filebase
-    except AttributeError:
-        print "Error during analysis of " + clone.filepath
+    #except AttributeError:
+    #    print "Error during analysis of " + clone.filepath

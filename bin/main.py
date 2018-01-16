@@ -16,15 +16,14 @@ outfile = "analysis_results.txt"
 analysis = True
 build_clonedata = False
 
-flgs = []
+flags = []
 
 if analysis == True:
-    flgs.append("getPxtomm")
-    flgs.append("doEyeAreaCalc")
-    flgs.append("doAntennaMasking")
-    flgs.append("doAnimalAreaCalc")
-    flgs.append("doBodyLandmarks")
-    flgs.append("getOrientationVectors")
+    flags.append("getPxtomm")
+    flags.append("doEyeAreaCalc")
+    flags.append("doAntennaMasking")
+    flags.append("doAnimalAreaCalc")
+    flags.append("getOrientationVectors")
 
 print "Loading clone data\n"
 
@@ -104,11 +103,11 @@ if analysis:
 
             if not clone.analyzed:
                 print "Analyzing " + clone.filebase
-                utils.analyze_clone(clone, flgs)
+                utils.analyze_clone(clone, flags)
                 utils.write_clone(clone, cols, ANALYSISDIR, outfile)
                 clone.analyzed = True
                 
-            if "doPedestalScore" in flgs:
+            if "doPedestalScore" in flags:
                 if not clone.pedestal_analyzed:
                     try:
                         clone.initialize_snake()

@@ -456,10 +456,19 @@ class Clone(object):
 
     def count_animal_pixels(self, im, sigma=1.25, canny_thresholds=[0,50]):
         
-        high_contrast_im = self.high_contrast_im
+        high_contrast_im = self.high_contrast(im)
         edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255
 
         edges_x, edges_y = np.where(edge_image)[0], np.where(edge_image)[1]
+        
+        hx1, hy1 = self.ventral_mask_endpoints[0]
+        vd1 = self.ventral_mask_endpoints[1]
+        (ttx, tty) = self.dorsal_mask_endpoints[0]
+        vd2 = self.dorsal_mask_endpoints[1]
+        
+        top1, top2 = self.anterior_mask_endpoints
+        bot1, bot2 = self.posterior_mask_endpoints
+        
         cx, cy = self.animal_x_center, self.animal_y_center
 
         for i in xrange(len(edges_x)):
@@ -497,6 +506,8 @@ class Clone(object):
         
         area = 0
         for i in xrange(len(ex), 2):
+            print  ex[i+1]*(y[i+2]-y[i]) + y[i+1]*(x[i]-x[i+2])
+        
             area += ex[i+1]*(y[i+2]-y[i]) + y[i+1]*(x[i]-x[i+2])
         
         self.total_animal_pixels = area/2
@@ -506,7 +517,6 @@ class Clone(object):
         self.animal_area = self.total_animal_pixels/np.power(self.pixel_to_mm, 2)
 
     def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7, b=20, c=2):
-        
         ex, ey = self.eye_x_center, self.eye_y_center
 
         high_contrast_im = self.high_contrast(im)
@@ -538,10 +548,10 @@ class Clone(object):
         top1 = hx2 + b*(ey - hy2), hy2 + b*(hx2 - ex)
         top2 = hx2 - b*(ey - hy2), hy2 - b*(hx2 - ex)
 
-        clone.tail = 0.4*cx + 0.6*clone.tail_tip[0], 0.4*cy + 0.6*clone.tail_tip[1]
-        bot1 = clone.tail[0] + c*(clone.tail_tip[1] - clone.tail[1]), clone.tail[1] + c*(clone.tail_tip[0] - clone.tail[0])
-        bot2 = clone.tail[0] - c*(clone.tail_tip[1] - clone.tail[1]), clone.tail[1] - c*(clone.tail_tip[0] - clone.tail[0])
-
+        self.tail = 0.4*cx + 0.6*self.tail_tip[0], 0.4*cy + 0.6*self.tail_tip[1]
+        bot1 = self.tail[0] + c*(self.tail_tip[1] - self.tail[1]), self.tail[1] + c*(self.tail_tip[0] - self.tail[0])
+        bot2 = self.tail[0] - c*(self.tail_tip[1] - self.tail[1]), self.tail[1] - c*(self.tail_tip[0] - self.tail[0])
+       
         edges_x = np.where(edge_image)[0]
         edges_y = np.where(edge_image)[1]
 
@@ -591,6 +601,8 @@ class Clone(object):
         self.dorsal_mask_endpoints = (self.tail_tip, (dx, dy))
         self.anterior_mask_endpoints = (top1, top2)
         self.posterior_mask_endpoints = (bot1, bot2)
+        
+        print self.ventral_mask_endpoints
 
     def get_anatomical_directions(self, im, sigma=3, flag="animal"):
 
