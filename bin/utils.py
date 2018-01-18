@@ -95,7 +95,7 @@ def load_manual_scales(filepath):
     
     return manual_scales
 
-def write_pedesaal_data(data, filepath):
+def write_pedestal_data(data, filepath):
 
     with open(filepath, "w") as f:
         
