@@ -456,56 +456,83 @@ class Clone(object):
 
     def count_animal_pixels(self, im, sigma=1.25, canny_thresholds=[0,50]):
         
-        high_contrast_im = self.high_contrast(im)
-        edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255
-
-        edges_x, edges_y = np.where(edge_image)[0], np.where(edge_image)[1]
-        
-        hx1, hy1 = self.ventral_mask_endpoints[0]
-        vd1 = self.ventral_mask_endpoints[1]
-        (ttx, tty) = self.dorsal_mask_endpoints[0]
-        vd2 = self.dorsal_mask_endpoints[1]
-        
-        top1, top2 = self.anterior_mask_endpoints
-        bot1, bot2 = self.posterior_mask_endpoints
-        
         cx, cy = self.animal_x_center, self.animal_y_center
 
-        for i in xrange(len(edges_x)):
-            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx1, hy1, vd1[0], vd1[1]]):
-                edge_image[edges_x[i], edges_y[i]] = 0
-            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [top1[0], top1[1], top2[0], top2[1]]):
-                edge_image[edges_x[i], edges_y[i]] = 0
-            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [hx1, hy1, vd2[0], vd2[1]]):
-                edge_image[edges_x[i], edges_y[i]] = 0
-            if self.intersect([cx, cy, edges_x[i], edges_y[i]], [bot1[0], bot1[1], bot2[0], bot2[1]]):
-                edge_image[edges_x[i], edges_y[i]] = 0
+        hx1, hy1 = self.ventral_mask_endpoints[0]
+        vx, vy = self.ventral_mask_endpoints[1]
+        
+        hx2, hy2 = self.dorsal_mask_endpoints[0]
+        dx, dy = self.dorsal_mask_endpoints[1]
 
-        new_edges = np.zeros(edge_image.shape)
+        topx1, topy1 = self.anterior_mask_endpoints[0]
+        topx2, topy2 = self.anterior_mask_endpoints[1]
 
-        for row in xrange(edge_image.shape[0]):
-            try:
-                new_edges[row, np.min( np.where( edge_image[row,:]) ) ] = 1
-            except ValueError: pass
+        r = 2*self.dist((cx, cy), self.anterior)
 
-            try:
-                new_edges[row, np.max( np.where( edge_image[row,:]) ) ] = 1
-            except ValueError: pass
+        s = np.linspace(0, 2*np.pi, 100)
+        x = cx + int(r)*np.sin(s)
+        y = cy + int(r)*np.cos(s)
 
-        for col in xrange(edge_image.shape[1]):
-            try:
-                new_edges[np.min( np.where( edge_image[:, col] ) ), col] = 1
-            except ValueError: pass
+        pts = []
+
+        grad_x, grad_y = np.gradient(gaussiasn(im, sigma=sigma))
+
+        for i in xrange(len(s)):
             
-            try:
-                new_edges[np.max( np.where( edge_image[:, col] ) ), col] = 1
-            except ValueError: pass
+            dot = gx*(cx - x[i]) + gy*(cy - y[i])
 
-        ex = np.where(new_edges)[0]
-        ey = np.where(new_edges)[1]
-        
-        self.total_animal_pixels = self.area(ex, ey)
-        
+            p1 = (y[i], x[i])
+
+            if self.intersect((p1[1], p1[0], cx, cy), (hx1, hy1, vx, vy)):
+                res = self.intersection((p1[1], p1[0], cx, cy), ((hx1, hy1, vx, vy)))
+                p1 = (res[1], res[0])
+
+            if clone.intersect((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy) ):
+                res = intersection((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy))
+                p1 = (res[1], res[0])
+
+            if self.intersect((p1[1], p1[0], cx, cy), (top1x, top1y, top2x, top2y) ):
+                res = self.intersection((p1[1], p1[0], cx, cy), (top1x, top1y, top2x, top2y))
+                p1 = (res[1], res[0])
+
+            edge_pt = self.find_edge(dot, p1, p2)
+
+            if edge_pt is not None:
+                pts.append(edge_pt)
+
+        pts = np.array(pts)
+        cc = [[]]
+        idx = 0
+        connected = False
+
+        for i in xrange(1,pts.shape[0]-1):
+
+            if (self.dist(pts[i, :], pts[i-1,:]) < 15) or (self.dist(pts[i+1, :], pts[i,:]) < 15):
+
+                try:
+                    cc[idx].append(pts[i,:])
+                    connected = True
+
+                except IndexError:
+                    cc.append([])
+                    cc[idx].append(pts[i,:])
+                    connected = True
+            else:
+                try:
+                    if len(cc[idx]) < 4:
+                        cc.pop(idx)
+                        idx -= 1
+                except IndexError:
+                    pass
+
+                else:
+                    if connected:
+                        idx += 1
+                        connected = False
+
+        cc = np.vstack(cc)
+        self.total_animal_pixels = self.area(cc[:,0], cc[:,1])
+
     def get_animal_area(self):
 
         self.animal_area = self.total_animal_pixels/np.power(self.pixel_to_mm, 2)
@@ -953,3 +980,17 @@ class Clone(object):
             return False
 
         return True
+
+    def intersection(self, s1, s2):
+
+        # returns the point of intersection for two line segments
+
+        if not self.intersect(s1, s2): return None
+
+        x1, y1, x2, y2 = s1
+        x3, y3, x4, y4 = s2
+
+        return (((x1*y2-y1*x2)*(x3-x4) - (x1-x2)*(x3*y4-y3*x4))/
+                ((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)),
+                ((x1*y2-y1*x2)*(y3-y4) - (y1-y2)*(x3*y4-y3*x4))/
+                ((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)))
