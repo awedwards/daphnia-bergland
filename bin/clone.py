@@ -417,7 +417,7 @@ class Clone(object):
 
         # initialize eye center
         eye_im = np.where((im < np.percentile(im, 0.025)))
-        ex, ey = np.mean(eye_im, axis=1)
+        ex, ey = np.median(eye_im, axis=1)
 
         to_check = [(int(ex), int(ey))]
         checked = []
