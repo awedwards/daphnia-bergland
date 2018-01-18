@@ -504,13 +504,7 @@ class Clone(object):
         ex = np.where(new_edges)[0]
         ey = np.where(new_edges)[1]
         
-        area = 0
-        for i in xrange(len(ex), 2):
-            print  ex[i+1]*(y[i+2]-y[i]) + y[i+1]*(x[i]-x[i+2])
-        
-            area += ex[i+1]*(y[i+2]-y[i]) + y[i+1]*(x[i]-x[i+2])
-        
-        self.total_animal_pixels = area/2
+        self.total_animal_pixels = self.area(ex, ey)
         
     def get_animal_area(self):
 
@@ -582,39 +576,39 @@ class Clone(object):
 
         if self.dist( self.ventral, vd1 ) < self.dist( self.ventral, vd2 ):
             self.ventral_mask_endpoints = ((hx1, hy1), vd1)
-            self.dorsal_mask_endpoints = ((hx1, hy1), vd2)
         else:
             self.ventral_mask_endpoints = ((hx1, hy1), vd2)
-            self.dorsal_mask_endpoints = ((hx1, hy1), vd1)
         
-        dx, dy = self.dorsal_mask_endpoints[1]
+        hx, hy = self.ventral_mask_endpoints[0]
+        vx, vy = self.ventral_mask_endpoints[1]
 
-        edge_image = cv2.Canny(np.array(255*gaussian(high_contrast_im, sigma=1), dtype=np.uint8), canny_thresholds[0], canny_thresholds[1])/255
-        ix, iy = np.linspace(dy, hy1, 500), np.linspace(dx, hx1, 500)
-        zi = pd.rolling_mean( scipy.ndimage.map_coordinates(edge_image, np.vstack((ix, iy)), mode="nearest"), 4)
+        m = (hy - vy)/(hx - vx)
+        b = hy - m*hx
 
-        for i in xrange(10, len(zi-250)):
-            if zi[i] > 0.5:
-                dx, dy = ix[i-20], iy[i-20]
-                break
+        x2 = (cx + m*(cy-b))/(1 + m**2)
+        y2 = (m*cx + (m**2)*cy + b)/(1 + m**2)
 
-        self.dorsal_mask_endpoints = (self.tail_tip, (dx, dy))
+        shift = np.array( (x2 - cx, y2 - cy) )
+
+        self.dorsal_mask_endpoints = ((hx - 1.4*shift[0], hy - 1.4*shift[1]), self.tail_tip)
+        self.ventral_mask_endpoints = ((self.ventral_mask_endpoints[0][0] + 0.05*shift[0],
+            self.ventral_mask_endpoints[0][1] + 0.05*shift[1]),
+            (self.ventral_mask_endpoints[1][0] + 0.05*shift[0],
+                self.ventral_mask_endpoints[1][1] + 0.05*shift[1]))
         self.anterior_mask_endpoints = (top1, top2)
         self.posterior_mask_endpoints = (bot1, bot2)
         
-        print self.ventral_mask_endpoints
-
     def get_anatomical_directions(self, im, sigma=3, flag="animal"):
 
         x, y, major, minor, theta = self.fit_ellipse(im, sigma)
-
+        self.animal_x_center, self.animal_y_center, self.animal_major, self.animal_minor, self.animal_theta = x, y, major, minor, theta
+        
         major_vertex_1 = (x - 0.5*major*np.sin(theta), y - 0.5*major*np.cos(theta))
         major_vertex_2 = (x + 0.5*major*np.sin(theta), y + 0.5*major*np.cos(theta))
 
         minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
         minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
         
-        self.animal_x_center, self.animal_y_center = x, y
 
         if self.dist( major_vertex_1, (self.eye_x_center, self.eye_y_center)) < self.dist(major_vertex_2, (self.eye_x_center, self.eye_y_center)):
             self.anterior = major_vertex_1
@@ -647,22 +641,19 @@ class Clone(object):
         body_vertex = getattr(self, vertex)
 
         if body_vertex == None:
-
             self.get_anatomical_directions()
 
-        else:
+        d_y = body_vertex[1] - self.animal_y_center
+        d_x = body_vertex[0] - self.animal_x_center
 
-            d_y = body_vertex[1] - self.animal_y_center
-            d_x = body_vertex[0] - self.animal_x_center
+        # draw line from eye center with same slope as dorsal axis
 
-            # draw line from eye center with same slope as dorsal axis
-
-            y1 = self.eye_y_center
-            x1 = self.eye_x_center
-            y2 = self.eye_y_center + d_y
-            x2 = self.eye_x_center + d_x
-            
-            setattr(self, "eye_" + vertex,  self.find_zero_crossing(im,(x1,y1),(x2,y2)) )
+        y1 = self.eye_y_center
+        x1 = self.eye_x_center
+        y2 = self.eye_y_center + d_y
+        x2 = self.eye_x_center + d_x
+        
+        setattr(self, "eye_" + vertex,  self.find_zero_crossing(im,(x1,y1),(x2,y2)) )
     
     def find_head(self, im, segim):
 
@@ -930,7 +921,17 @@ class Clone(object):
         
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
         return clahe.apply(im)
+    
+    def area(self, x, y):
 
+        x = np.asanyarray(x)
+        y = np.asanyarray(y)
+        n = len(x)
+
+        up = np.arange(-n+1, 1)
+        down = np.arange(-1, n-1)
+
+        return (x * (y.take(up) - y.take(down))).sum() / 2
     def intersect(self, s1, s2):
 
         x1, y1, x2, y2 = s1
