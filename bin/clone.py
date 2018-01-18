@@ -441,7 +441,7 @@ class Clone(object):
             
             checked.append(to_check.pop(0))
         
-        self.eye_pts = eye
+        self.eye_pts = np.array(eye)
         self.eye_x_center, self.eye_y_center = np.mean(np.array(eye), axis=0)
         self.total_eye_pixels = count
     
@@ -487,8 +487,8 @@ class Clone(object):
                 res = self.intersection((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy))
                 p1 = (res[1], res[0])
 
-            if self.intersect((p1[1], p1[0], cx, cy), (top1x, top1y, top2x, top2y) ):
-                res = self.intersection((p1[1], p1[0], cx, cy), (top1x, top1y, top2x, top2y))
+            if self.intersect((p1[1], p1[0], cx, cy), (topx1, topy1, topx2, topy2) ):
+                res = self.intersection((p1[1], p1[0], cx, cy), (topx1, topy1, topx2, topy2))
                 p1 = (res[1], res[0])
 
             edge_pt = self.find_edge(dot, p1, p2)
@@ -528,7 +528,7 @@ class Clone(object):
 
         self.whole_animal_points = cc
         cc = np.vstack(cc)
-        self.total_animal_pixels = self.area(cc[:,0], cc[:,1])
+        self.total_animal_pixels = self.area(cc[:,1], cc[:,0])
 
     def get_animal_area(self):
 
@@ -660,7 +660,7 @@ class Clone(object):
         self.ven_vec = [self.animal_x_center - self.ventral[0], self.animal_y_center - self.ventral[1]]
         self.ant_vec = [self.animal_x_center - self.anterior[0], self.animal_y_center - self.anterior[1]]
     
-    def find_eye_vector(self, vec):
+    def get_eye_vector(self, vec):
 
         # finds dorsal point of the eye
         
@@ -690,7 +690,7 @@ class Clone(object):
             self.find_tail()
         
         if self.eye_dorsal is None:
-            self.find_eye_vector(im, "dorsal")
+            self.get_eye_vector(im, "dorsal")
 
         if (self.tail is not None) and (self.eye_dorsal is not None):
 

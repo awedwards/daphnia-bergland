@@ -299,6 +299,7 @@ def analyze_clone(clone, flags, pedestal_data=None):
         
         if "doLength" in flags:
             print "Calculating length"
+            clone.get_eye_vector("dorsal")
             clone.get_animal_length()
 
         if "doPedestalScore" in flags:
