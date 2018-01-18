@@ -24,7 +24,7 @@ if analysis == True:
     flags.append("doAntennaMasking")
     flags.append("doAnimalAreaCalc")
     flags.append("getOrientationVectors")
-
+    flags.append("doLength")
 print "Loading clone data\n"
 
 
@@ -54,6 +54,7 @@ cols = ["filebase",
         "animal_area",
         "total_eye_pixels",
         "eye_area",
+        "animal_length_pixels",
         "animal_length",
         "pixel_to_mm",
         "animal_x_center",

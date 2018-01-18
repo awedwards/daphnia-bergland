@@ -474,7 +474,7 @@ class Clone(object):
 
         for i in xrange(len(s)):
             
-            dot = gx*(cx - x[i]) + gy*(cy - y[i])
+            dot = grad_x*(cx - x[i]) + grad_y*(cy - y[i])
 
             p1 = (y[i], x[i])
             p2 = (cy, cx)
@@ -483,7 +483,7 @@ class Clone(object):
                 res = self.intersection((p1[1], p1[0], cx, cy), ((hx1, hy1, vx, vy)))
                 p1 = (res[1], res[0])
 
-            if clone.intersect((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy) ):
+            if self.intersect((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy) ):
                 res = self.intersection((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy))
                 p1 = (res[1], res[0])
 
@@ -682,7 +682,7 @@ class Clone(object):
         x = self.eye_x_center + d_x 
         y = self.eye_y_center + d_y
          
-        setattr(self, "eye_" + vec, eye[np.argmin(np.linalg.norm(eye -  np.array((x, y)), :]) )] )
+        setattr(self, "eye_" + vec, eye[np.argmin(np.linalg.norm(eye -  np.array((x, y)))), :] )
     
     def find_head(self, im):
 

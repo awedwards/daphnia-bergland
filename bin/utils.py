@@ -296,10 +296,10 @@ def analyze_clone(clone, flags, pedestal_data=None):
         if "getOrientationVectors" in flags:
             print "Calculating orientation vectors."
             clone.get_orientation_vectors()
-
+        
         if "doLength" in flags:
             print "Calculating length"
-            clone.calculate_length()
+            clone.get_animal_length()
 
         if "doPedestalScore" in flags:
             print "Calculating pedestal area"
