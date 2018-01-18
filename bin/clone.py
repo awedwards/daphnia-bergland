@@ -441,20 +441,15 @@ class Clone(object):
             
             checked.append(to_check.pop(0))
         
+        self.eye_pts = eye
         self.eye_x_center, self.eye_y_center = np.mean(np.array(eye), axis=0)
-        
-        try:
-            self.find_eye_vertex(eye, "dorsal")
-        except Exception:
-            pass
-
         self.total_eye_pixels = count
     
     def get_eye_area(self):
 
         self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
 
-    def count_animal_pixels(self, im, sigma=1.25, canny_thresholds=[0,50]):
+    def count_animal_pixels(self, im, sigma=1, canny_thresholds=[0,50]):
         
         cx, cy = self.animal_x_center, self.animal_y_center
 
@@ -482,6 +477,7 @@ class Clone(object):
             dot = gx*(cx - x[i]) + gy*(cy - y[i])
 
             p1 = (y[i], x[i])
+            p2 = (cy, cx)
 
             if self.intersect((p1[1], p1[0], cx, cy), (hx1, hy1, vx, vy)):
                 res = self.intersection((p1[1], p1[0], cx, cy), ((hx1, hy1, vx, vy)))
@@ -498,14 +494,14 @@ class Clone(object):
             edge_pt = self.find_edge(dot, p1, p2)
 
             if edge_pt is not None:
-                pts.append(edge_pt)
+                pts.append((edge_pt[1], edge_pt[0]))
 
         pts = np.array(pts)
         cc = [[]]
         idx = 0
         connected = False
 
-        for i in xrange(1,pts.shape[0]-1):
+        for i in xrange(1, pts.shape[0] - 1):
 
             if (self.dist(pts[i, :], pts[i-1,:]) < 15) or (self.dist(pts[i+1, :], pts[i,:]) < 15):
 
@@ -530,12 +526,18 @@ class Clone(object):
                         idx += 1
                         connected = False
 
+        self.whole_animal_points = cc
         cc = np.vstack(cc)
         self.total_animal_pixels = self.area(cc[:,0], cc[:,1])
 
     def get_animal_area(self):
 
         self.animal_area = self.total_animal_pixels/np.power(self.pixel_to_mm, 2)
+
+    def get_animal_length(self):
+
+        self.animal_length_pixels = self.dist(self.eye_dorsal, self.tail)
+        self.animal_length = self.animal_length_pixels/self.pixel_to_mm
 
     def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7, b=20, c=2):
         ex, ey = self.eye_x_center, self.eye_y_center
@@ -657,38 +659,38 @@ class Clone(object):
         self.dor_vec = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
         self.ven_vec = [self.animal_x_center - self.ventral[0], self.animal_y_center - self.ventral[1]]
         self.ant_vec = [self.animal_x_center - self.anterior[0], self.animal_y_center - self.anterior[1]]
-        
-    def find_eye_vertex(self, im, vertex):
+    
+    def find_eye_vector(self, vec):
 
         # finds dorsal point of the eye
         
-        if vertex not in ["dorsal", "ventral", "anterior", "posterior"]:
-            raise( "Choose different (and real) direction")
+        if vec not in ["dorsal", "ventral", "anterior", "posterior"]:
+            raise( "Direction not found")
 
-        body_vertex = getattr(self, vertex)
+        eye = self.eye_pts
 
-        if body_vertex == None:
+        body_vector = getattr(self, vec)
+
+        if body_vector == None:
             self.get_anatomical_directions()
 
-        d_y = body_vertex[1] - self.animal_y_center
-        d_x = body_vertex[0] - self.animal_x_center
-
-        # draw line from eye center with same slope as dorsal axis
-
-        y1 = self.eye_y_center
-        x1 = self.eye_x_center
-        y2 = self.eye_y_center + d_y
-        x2 = self.eye_x_center + d_x
+        d_x = body_vector[0] - self.animal_x_center
+        d_y = body_vector[1] - self.animal_y_center
         
-        setattr(self, "eye_" + vertex,  self.find_zero_crossing(im,(x1,y1),(x2,y2)) )
+        # draw line from eye center with same slope as body vector
+
+        x = self.eye_x_center + d_x 
+        y = self.eye_y_center + d_y
+         
+        setattr(self, "eye_" + vec, eye[np.argmin(np.linalg.norm(eye -  np.array((x, y)), :]) )] )
     
-    def find_head(self, im, segim):
+    def find_head(self, im):
 
         if self.tail is None:
-            self.find_tail(im)
+            self.find_tail()
         
         if self.eye_dorsal is None:
-            self.find_eye_dorsal(segim)
+            self.find_eye_vector(im, "dorsal")
 
         if (self.tail is not None) and (self.eye_dorsal is not None):
 
@@ -745,19 +747,27 @@ class Clone(object):
         p2 = (self.dorsal[1]-b)/m, self.dorsal[1]
         self.dorsal_point = self.find_edge(dot, p2, p1)
 
-    def find_tail(self, im):
+    def find_tail(self):
         
-        # uses ellipse fit to find tail landmark
-        #
-        # input: grayscale raw image
-
-        idx_x, idx_y = self.gradient_mask(im, "tail")
+        # get ventral/posterior-most connected components from the whole animal fitting,
+        # then get the point in that set closest to the tail tip
         
-        targetx = self.posterior[0] + self.dorsal[0] - self.animal_x_center
-        targety = self.posterior[1] + self.dorsal[1] - self.animal_y_center
+        self.get_orientation_vectors()
+        ven_pos_vec = np.array(self.pos_vec) + np.array(clone.ven_vec)
+        cx, cy = self.animal_x_center, self.animal_y_center
 
-        tail_idx = np.argmin(np.sqrt((idx_x - targetx)**2 + (idx_y - targety)**2))
-        self.tail = [idx_x[tail_idx], idx_y[tail_idx]]
+        mean_dist = []
+
+        for c in self.whole_animal_points:
+
+            m = np.mean( c, axis = 0 )
+            mean_dist.append( self.dist( m, ( cx - ven_pos_vec[0], cy - ven_pos_vec[1]) ) )
+
+        ven_pos_points = np.vstack( self.whole_animal_points[np.argmin( mean_dist )] )
+        
+        idx = np.argmin(np.linalg.norm(ven_pos_points - np.array((self.tail_tip[0], self.tail_tip[1])), axis=1))
+        
+        self.tail = (ven_pos_points[idx, 0], ven_pos_points[idx, 1])
 
     def gradient_mask(self, im, part, threshold=0.3):
 
@@ -891,6 +901,7 @@ class Clone(object):
             if self.dist(edge[i, :], avg) < prune_threshold:
             #    print edge[i,:], init[i]
                 pruned_edge.append((i, self.dist(edge[i, :], init[i])))
+        
         #pruned_edge_normalized = [pruned_edge[:,0], pruned_edge[:,1]/(self.pixel_to_mm/self.animal_length)]
         return pruned_edge
     
