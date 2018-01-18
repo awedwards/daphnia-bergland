@@ -475,7 +475,7 @@ class Clone(object):
 
         pts = []
 
-        grad_x, grad_y = np.gradient(gaussiasn(im, sigma=sigma))
+        grad_x, grad_y = np.gradient(gaussian(im, sigma=sigma))
 
         for i in xrange(len(s)):
             
@@ -488,7 +488,7 @@ class Clone(object):
                 p1 = (res[1], res[0])
 
             if clone.intersect((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy) ):
-                res = intersection((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy))
+                res = self.intersection((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy))
                 p1 = (res[1], res[0])
 
             if self.intersect((p1[1], p1[0], cx, cy), (top1x, top1y, top2x, top2y) ):
