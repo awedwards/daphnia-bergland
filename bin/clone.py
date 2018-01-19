@@ -410,10 +410,10 @@ class Clone(object):
             print "Error fitting ellipse: " + str(e)
             return
 
-    def find_eye(self, im):
+    def find_eye(self, im, sigma=0.5):
 
         hc = self.high_contrast(im)
-        edges = cv2.Canny(np.array(255*gaussian(hc, 0.5), dtype=np.uint8), 0, 50)/255
+        edges = cv2.Canny(np.array(255*gaussian(hc, sigma), dtype=np.uint8), 0, 50)/255
 
         # initialize eye center
         eye_im = np.where((im < np.percentile(im, 0.025)))
@@ -441,9 +441,13 @@ class Clone(object):
             
             checked.append(to_check.pop(0))
         
+
         self.eye_pts = np.array(eye)
-        self.eye_x_center, self.eye_y_center = np.mean(np.array(eye), axis=0)
-        self.total_eye_pixels = count
+        try:
+            self.eye_x_center, self.eye_y_center = np.mean(np.array(eye), axis=0)
+            self.total_eye_pixels = count
+        except (TypeError, IndexError):
+            self.find_eye(im, sigma=sigma+0.25)
     
     def get_eye_area(self):
 
