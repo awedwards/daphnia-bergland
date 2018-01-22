@@ -77,6 +77,7 @@ class Clone(object):
         self.animal_area = None
         self.total_eye_pixels = None
         self.eye_area = None
+        self.animal_length_pixels = None
         self.animal_length = None
         self.pedestal_size = None
         self.pedestal_max_height = None
@@ -686,7 +687,7 @@ class Clone(object):
         x = self.eye_x_center + d_x 
         y = self.eye_y_center + d_y
          
-        setattr(self, "eye_" + vec, eye[np.argmin(np.linalg.norm(eye -  np.array((x, y)))), :] )
+        setattr(self, "eye_" + vec, tuple(eye[np.argmin(np.linalg.norm(eye -  np.array((x, y)))), :]) )
     
     def find_head(self, im):
 
@@ -812,22 +813,56 @@ class Clone(object):
 
         return idx_x, idx_y
 
-    def initialize_snake(self):
-
-        head = self.head
-        tail = self.tail
-        mp = (head[0] + tail[0])/2, (head[1] + tail[1])/2
-        dp = (self.dorsal[0] + mp[0])/2, (self.dorsal[1] + mp[1])/2
+    def initialize_snake(self, im):
         
-        diameter = self.dist(head, dp)
-        cx, cy = (head[0] + dp[0])/2, (head[1] + dp[1])/2
+        ex, ey = self.eye_x_center, self.eye_y_center
+        tx, ty = self.tail[0], self.tail[1]
+
+        hc = self.high_contrast(im)
+        edges = cv2.Canny(np.array(255*gaussian(hc, 1.25), dtype=np.uint8), 0, 50)/255
+
+        m = (ty - ey)/(tx - ex)
+        b = ey - m*ex
+
+        d = clone.dist((ex, ey), (self.dorsal_mask_endpoints[0][0], self.dorsal_mask_endpoints[0][1]))
+        
+        x1 = ex + np.sqrt((d**2)/(1 + 1/(m**2)))
+        y1 = ey - (1/m)*(x1 - ex)
+
+        x2 = ex - np.sqrt((d**2)/(1 + 1/(m**2)))
+        y2 = ey - (1/m)*(x2 - ex)
+        
+        if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) < self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
+            p1 = x1, y1
+        else:
+            p1 = x2, y2
+        
+        p1 = self.find_edge2(edges, p1, (ex, ey))
+        
+        mp = (0.67*ex + 0.33*tx)/2, (0.67*ey + 0.33*ty)/2
+
+        x1 = mp[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
+        y1 = mp[1] - (1/m)*(x1 - ex)
+
+        x2 = mp[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
+        y2 = mp[1] - (1/m)*(x2 - ex)
+        
+        if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) < self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
+            p2 = x1, y1
+        else:
+            p2 = x2, y2
+        
+        p2 = self.find_edge2(edges, p2, (ex, ey))
+
+        diameter = self.dist(p1, p2)
+        cx, cy = (p1[0] + p2[0])/2, (p1[1] + p2[1])/2
 
         if (self.animal_x_center - self.anterior[0] < 0):
-            theta = np.arctan2(dp[0] - cx, dp[1] - cy)
+            theta = np.arctan2(p2[0] - cx, p2[1] - cy)
             s = np.linspace(theta, theta - np.sign(self.dor_vec[1])*np.pi, 400)
 
         elif (self.animal_x_center - self.anterior[0] > 0):
-            theta = np.arctan2(head[0] - cx, head[1] - cy)
+            theta = np.arctan2(p1[0] - cx, p1[1] - cy)
             s = np.linspace(theta, theta - np.sign(self.dor_vec[1])*np.pi, 400)
 
         x = cy + int(diameter/2)*np.cos(s)
@@ -950,6 +985,16 @@ class Clone(object):
                 if np.abs(j - k) < w_threshold:
                     return (yy[j], xx[j])          # intentionally return first trough
         return
+
+    def find_edge2(self, im, p1, p2, t=0.1, npoints=400):
+
+        xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
+        zi = scipy.ndimage.map_coordinates(im, np.vstack((yy, xx)), mode="nearest")
+        zi = pd.rolling_mean(zi, 4)
+
+        for i in xrange(len(zi)):
+            if zi[i] > t:
+                return (yy[i], xx[i])
 
     def gradient(self, im, direction, sigma=0.5):
 
