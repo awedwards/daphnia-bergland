@@ -803,10 +803,10 @@ class Clone(object):
         
         if part == "tail":
             post_dot = self.pos_vec[0]*dx + self.pos_vec[1]*dy
-            idx_x, idx_y = np.where(utils.norm(post_dot) < threshold)
+            idx_x, idx_y = np.where(self.norm(post_dot) < threshold)
         if part == "head":
             ant_dot = self.ant_vec[0]*dx + self.ant_vec[1]*dy
-            idx_x, idx_y = np.where(utils.norm(ant_dot) < threshold)
+            idx_x, idx_y = np.where(self.norm(ant_dot) < threshold)
 
         idx_x += int(bb[0,0])
         idx_y += int(bb[0,1])
@@ -1054,3 +1054,7 @@ class Clone(object):
                 ((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)),
                 ((x1*y2-y1*x2)*(y3-y4) - (y1-y2)*(x3*y4-y3*x4))/
                 ((x1-x2)*(y3-y4)-(y1-y2)*(x3-x4)))
+
+    def norm( self, x ):
+
+        return (x - np.min(x)) / (np.max(x) - np.min(x))
