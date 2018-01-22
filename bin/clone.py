@@ -839,20 +839,20 @@ class Clone(object):
         
         p1 = self.find_edge2(edges, p1, (ex, ey))
         
-        mp = (0.67*ex + 0.33*tx)/2, (0.67*ey + 0.33*ty)/2
+        mp = 0.67*ex + 0.33*tx, 0.67*ey + 0.33*ty
 
         x1 = mp[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
-        y1 = mp[1] - (1/m)*(x1 - ex)
+        y1 = mp[1] - (1/m)*(x1 - mp[0])
 
         x2 = mp[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
-        y2 = mp[1] - (1/m)*(x2 - ex)
+        y2 = mp[1] - (1/m)*(x2 - mp[0])
         
         if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) < self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
             p2 = x1, y1
         else:
             p2 = x2, y2
         
-        p2 = self.find_edge2(edges, p2, (ex, ey))
+        p2 = self.find_edge2(edges, p2, mp)
 
         diameter = self.dist(p1, p2)
         cx, cy = (p1[0] + p2[0])/2, (p1[1] + p2[1])/2
