@@ -7,10 +7,8 @@ import os
 import cv2
 import scipy
 import scipy.ndimage
-import scipy.stats
 from skimage import measure
 from skimage.filters import gaussian
-from skimage.segmentation import active_contour
 import utils
 from collections import defaultdict
 
