@@ -757,7 +757,7 @@ class Clone(object):
         # then get the point in that set closest to the tail tip
         
         self.get_orientation_vectors()
-        ven_pos_vec = np.array(self.pos_vec) + np.array(clone.ven_vec)
+        ven_pos_vec = np.array(self.pos_vec) + np.array(self.ven_vec)
         cx, cy = self.animal_x_center, self.animal_y_center
 
         mean_dist = []
@@ -823,7 +823,7 @@ class Clone(object):
         m = (ty - ey)/(tx - ex)
         b = ey - m*ex
 
-        d = clone.dist((ex, ey), (self.dorsal_mask_endpoints[0][0], self.dorsal_mask_endpoints[0][1]))
+        d = self.dist((ex, ey), (self.dorsal_mask_endpoints[0][0], self.dorsal_mask_endpoints[0][1]))
         
         x1 = ex + np.sqrt((d**2)/(1 + 1/(m**2)))
         y1 = ey - (1/m)*(x1 - ex)
@@ -904,7 +904,7 @@ class Clone(object):
             y = (m2*x + b2)
             p1 = x, y
             
-            e = clone.find_edge2(edges, p2, p1)
+            e = self.find_edge2(edges, p2, p1)
             
             if e is not None:
                 d.append(e)
