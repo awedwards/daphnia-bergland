@@ -76,6 +76,7 @@ class Clone(object):
         self.animal_length_pixels = None
         self.animal_length = None
         self.pedestal = None
+        self.iPedestal = None
         self.pedestal_size = None
         self.pedestal_max_height = None
         self.pedestal_area = None
@@ -891,9 +892,10 @@ class Clone(object):
         m2 = -1/m
 
         d = []
-        n = len(snakex)
+        idx = []
         
-        for i in xrange(n-1):
+        n = len(snakex)
+        for i in xrange(n):
 
             p2 = snakex[i], snakey[i]
             b2 = p2[1] - m2*p2[0]
@@ -906,8 +908,10 @@ class Clone(object):
             
             if e is not None:
                 d.append(e)
+                idx.append(i) 
 
         self.pedestal = d
+        self.iPedestal = idx
 
     def get_pedestal_max_height(self, data):
         
