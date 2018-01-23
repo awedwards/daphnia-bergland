@@ -11,8 +11,6 @@ import scipy.stats
 from skimage import measure
 from skimage.filters import gaussian
 from skimage.segmentation import active_contour
-import pickle
-import re
 import utils
 from collections import defaultdict
 
@@ -79,6 +77,7 @@ class Clone(object):
         self.eye_area = None
         self.animal_length_pixels = None
         self.animal_length = None
+        self.pedestal = None
         self.pedestal_size = None
         self.pedestal_max_height = None
         self.pedestal_area = None
@@ -268,7 +267,7 @@ class Clone(object):
         return np.linalg.norm(x-y)
     
     def find_zero_crossing(self,im,(x1, y1), (x2, y2)):
-        
+        a
         # finds boundary of binary object (object = 1, background = 0)
         npoints = max(np.abs(y2-y1),np.abs(x2-x1))
         x,y = np.linspace(x1,x2,npoints),np.linspace(y1,y2,npoints)
@@ -868,59 +867,36 @@ class Clone(object):
         x = cy + int(diameter/2)*np.cos(s)
         y = cx + int(diameter/2)*np.sin(s)
 
-        self.pedestal_snake =  np.array([x, y]).T
+        self.pedestal = np.array([x, y]).T
     
-    def fit_pedestal(self, im, hc=True, npoints=200, bound=0.2, ma=4, prune_ma=4, prune_threshold=3):
+    def fit_pedestal(self, im, sigma=1):
 
-        if self.pedestal_snake is None: self.initialize_snake()
-        ps = self.pedestal_snake
+        if self.pedestal is None: self.initialize_snake(im)
+        ps = self.pedestal
 
-        head = self.head
-        tail = self.tail
-        dp = self.dorsal_point
-        
-        w, h = im.shape
-
-        if hc:
-            # we use Contrast Limited Adaptive Histogram Equalization to 
-            # increase contrast around pedestal for better edge detection
-            
-            bb_x = ( int(np.max([np.min(ps[:,1]), 0])), int(np.min([np.max(ps[:,1]), w]) ))
-            bb_y = ( int(np.max([np.min(ps[:,0]), 0])), int(np.min([np.max(ps[:,0]) ,h]) ))
-
-            cropped = im[bb_x[0]:bb_x[1], bb_y[0]:bb_y[1]]
-            clahe = cv2.createCLAHE(clipLimit=10.0, tileGridSize=(8,8))
-            result = clahe.apply(cropped)
-            im[bb_x[0]:bb_x[1], bb_y[0]:bb_y[1]] = result
-        
-        dot = 4*self.gradient(im, "dorsal", sigma=1) + self.gradient(im, "anterior", sigma=1)
-        
-        n = ps.shape[0]
-
-        if self.dist(head, (ps[0,1], ps[0,0]) ) > 2:
-            ps = np.flip(ps, 0)
-        
-        snakex = ps[:,0]
-        snakey = ps[:,1]
+        hc = self.high_contrast(im)
+        edges = cv2.Canny(np.array(255*gaussian(hc, sigma), dtype=np.uint8), 0, 50)/255
+    
+        ex, ey = self.eye_x_center, self.eye_y_center
+    
+        snakex = ps[:,1]
+        snakey = ps[:,0]
 
         x1 = snakex[0]
         y1 = snakey[0]
         x2 = snakex[-1]
         y2 = snakey[-1]
-        
+
         m = (y2 - y1)/(x2 - x1)
         b = y1 - m*x1
 
         m2 = -1/m
 
-        ped_x = []
-        ped_y = []
-
-        edge = []
-        pruned_edge = []
-        init = []
+        d = []
+        n = len(snakex)
+        
         for i in xrange(n-1):
-            
+
             p2 = snakex[i], snakey[i]
             b2 = p2[1] - m2*p2[0]
 
@@ -928,22 +904,13 @@ class Clone(object):
             y = (m2*x + b2)
             p1 = x, y
             
-            e = self.find_edge(dot, p2, p1, npoints, ma, w_threshold=20)
+            e = clone.find_edge2(edges, p2, p1)
+            
             if e is not None:
-                init.append((x,y))
-                edge.append(e)
-        
-        window = int(prune_ma/2)
-        edge = np.array(edge)
-        for i in xrange(window, edge.shape[0] - window):
-            avg = np.mean(edge[i-window:i+window, :], axis=0)
-            if self.dist(edge[i, :], avg) < prune_threshold:
-            #    print edge[i,:], init[i]
-                pruned_edge.append((i, self.dist(edge[i, :], init[i])))
-        
-        #pruned_edge_normalized = [pruned_edge[:,0], pruned_edge[:,1]/(self.pixel_to_mm/self.animal_length)]
-        return pruned_edge
-    
+                d.append(e)
+
+        self.pedestal = d
+
     def get_pedestal_max_height(self, data):
         
         self.pedestal_max_height = np.max(data[:,1])
