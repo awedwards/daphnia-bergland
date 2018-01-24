@@ -84,6 +84,15 @@ class Clone(object):
         self.snake = None
         self.pixel_to_mm = None
         
+        self.pedestal_max_height_pixels = None
+        self.pedestal_area_pixels = None
+	self.pedestal_max_height = None
+	self.pedestal_area = None
+
+        self.pedestal_window_max_height_pixels = None
+        self.pedestal_window_area_pixels = None
+        self.pedestal_window_max_height = None
+        self.pedestal_window_area = None
 
         self.animal_x_center = None
         self.animal_y_center = None
@@ -1027,3 +1036,65 @@ class Clone(object):
     def norm( self, x ):
 
         return (x - np.min(x)) / (np.max(x) - np.min(x))
+
+    def analyze_pedestal(self, p, idx, n=400, window=50):
+
+        arr = np.empty(n)
+        arr[:] = np.nan
+        arr_w = arr.copy()
+
+        ex, ey = self.eye_x_center, self.eye_y_center
+
+        x1, y1 = p[0,:]
+        x2, y2 = p[p.shape[0]-1, :]
+
+	if self.dist((x1, y1), (ex, ey)) > self.dist((x2, y2), (ex, ey)):
+	    p = np.flip(p, axis = 0)
+	    x1, y1 = p[0,:]
+	    x2, y2 = p[p.shape[0]-1, :]
+       
+	m1 = (y2 - y1)/(x2 - x1)
+	b1 = y1 - m1*x1
+	
+	# scalar
+	m2 = -1/m1
+	
+	# n-by-1 vector
+	b2 = p[:,1] - m2*p[:,0]
+	
+	x2 = (b2 - b1)/(m1 - m2)
+	y2 = m1*x2 + b1
+	
+	baseline = np.vstack((x2, y2)).T
+        h = np.linalg.norm(p - baseline, axis=1)
+	arr[idx.astype(np.uint16)] = h
+        self.pedestal_height = arr
+
+        self.pedestal_max_height_pixels, self.pedestal_area_pixels = self.pedestal_stats(h, baseline)        
+	self.pedestal_max_height = self.pedestal_max_height_pixels/self.pixel_to_mm	
+	self.pedestal_area = self.pedestal_area_pixels/np.power(self.pixel_to_mm, 2)
+
+        try:
+
+            max_idx = np.nanargmax(arr)
+            lb = np.max([0, max_idx-int(window/2)])
+            ub = np.min([max_idx+int(window/2), len(h)])
+            h_w = h[lb:ub] - np.min(h[lb:ub])
+
+            arr_w[idx[lb:ub].astype(np.uint16)] = h_w
+            baseline_w = baseline[lb:ub]
+
+            self.pedestal_window_height = arr_w
+            
+            self.pedestal_window_max_height_pixels, self.pedestal_window_area_pixels = self.pedestal_stats(h_w, baseline_w)
+            self.pedestal_window_max_height = self.pedestal_window_max_height_pixels/self.pixel_to_mm
+            self.pedestal_window_area = self.pedestal_window_area_pixels/np.power(self.pixel_to_mm, 2)
+
+        except ValueError:
+            print "Pedestal not fit properly"
+
+    def pedestal_stats(self, h, baseline):
+        
+	w = np.linalg.norm(baseline[0:-1, :] - baseline[1:, :], axis=1)
+      
+        return np.nanmax(h), np.nansum((h[0:-1] + h[1:])*(w/2))
