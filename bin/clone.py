@@ -275,7 +275,7 @@ class Clone(object):
         return np.linalg.norm(x-y)
     
     def find_zero_crossing(self,im,(x1, y1), (x2, y2)):
-        a
+        
         # finds boundary of binary object (object = 1, background = 0)
         npoints = max(np.abs(y2-y1),np.abs(x2-x1))
         x,y = np.linspace(x1,x2,npoints),np.linspace(y1,y2,npoints)
