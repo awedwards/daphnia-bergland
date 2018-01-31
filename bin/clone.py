@@ -583,9 +583,9 @@ class Clone(object):
         top1 = hx2 + b*(ey - hy2), hy2 + b*(hx2 - ex)
         top2 = hx2 - b*(ey - hy2), hy2 - b*(hx2 - ex)
 
-        self.tail = 0.4*cx + 0.6*self.tail_tip[0], 0.4*cy + 0.6*self.tail_tip[1]
-        bot1 = self.tail[0] + c*(self.tail_tip[1] - self.tail[1]), self.tail[1] + c*(self.tail_tip[0] - self.tail[0])
-        bot2 = self.tail[0] - c*(self.tail_tip[1] - self.tail[1]), self.tail[1] - c*(self.tail_tip[0] - self.tail[0])
+        tail = 0.4*cx + 0.6*self.tail_tip[0], 0.4*cy + 0.6*self.tail_tip[1]
+        bot1 = tail[0] + c*(self.tail_tip[1] - tail[1]), tail[1] + c*(self.tail_tip[0] - tail[0])
+        bot2 = tail[0] - c*(self.tail_tip[1] - tail[1]), tail[1] - c*(self.tail_tip[0] - tail[0])
        
         edges_x = np.where(edge_image)[0]
         edges_y = np.where(edge_image)[1]
@@ -648,8 +648,7 @@ class Clone(object):
         major_vertex_2 = (x + 0.5*major*np.sin(theta), y + 0.5*major*np.cos(theta))
 
         minor_vertex_1 = (x + 0.5*minor*np.cos(theta), y - 0.5*minor*np.sin(theta))
-        minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta))
-        
+        minor_vertex_2 = (x - 0.5*minor*np.cos(theta), y + 0.5*minor*np.sin(theta)) 
 
         if self.dist( major_vertex_1, (self.eye_x_center, self.eye_y_center)) < self.dist(major_vertex_2, (self.eye_x_center, self.eye_y_center)):
             self.anterior = major_vertex_1

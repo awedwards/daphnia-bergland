@@ -286,6 +286,7 @@ def analyze_clone(clone, flags, pedestal_data=None):
             print "Calculating area for animal."
             clone.count_animal_pixels(im)
             clone.get_animal_area()
+            clone.find_tail()
 
         if "getOrientationVectors" in flags:
             print "Calculating orientation vectors."
