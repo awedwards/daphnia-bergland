@@ -832,50 +832,48 @@ class Clone(object):
 
         d = self.dist((ex, ey), (self.dorsal_mask_endpoints[0][0], self.dorsal_mask_endpoints[0][1]))
         
-        x1 = ex + np.sqrt((d**2)/(1 + 1/(m**2)))
-        y1 = ey - (1/m)*(x1 - ex)
+        x, y = self.dorsal_orth((ex, ey), d, m)
+        p1 = self.find_edge2(edges, (x, y), (ex, ey))
 
-        x2 = ex - np.sqrt((d**2)/(1 + 1/(m**2)))
-        y2 = ey - (1/m)*(x2 - ex)
-        
-        if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) < self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
-            p1 = x1, y1
-        else:
-            p1 = x2, y2
-        
-        p1 = self.find_edge2(edges, p1, (ex, ey))
-        
         mp = 0.67*ex + 0.33*tx, 0.67*ey + 0.33*ty
 
-        x1 = mp[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
-        y1 = mp[1] - (1/m)*(x1 - mp[0])
+        x, y = dorsal_orth(mp, d, m)
+        p2 = self.find_edge2(edges, (x, y), mp)
 
-        x2 = mp[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
-        y2 = mp[1] - (1/m)*(x2 - mp[0])
+        m2 = (p1[1] - p2[1])/(p1[0] - p2[0])
+        xx1, yy1 = ventral_orth(p1, d*0.25, m2)
+        xx2, yy2 = ventral_orth(p2, d*0.25, m2)
+
+        xx, yy = np.linspace(xx1, xx2, 400), np.linspace(yy1, yy2, 400)
         
+        self.pedestal = np.vstack((xx, yy))
+
+    def dorsal_orth(self, p, d, m):
+
+        x1 = p[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
+        y1 = p[1] - (1/m)*(x1 - p[0])
+
+        x2 = p[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
+        y2 = p[1] - (1/m)*(x2 - p[0])
+
         if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) < self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
-            p2 = x1, y1
+            return x1, y1
         else:
-            p2 = x2, y2
-        
-        p2 = self.find_edge2(edges, p2, mp)
+            return x2, y2
 
-        diameter = self.dist(p1, p2)
-        cx, cy = (p1[0] + p2[0])/2, (p1[1] + p2[1])/2
+    def ventral_orth(self, p, d, m):
 
-        if (self.animal_x_center - self.anterior[0] < 0):
-            theta = np.arctan2(p2[0] - cx, p2[1] - cy)
-            s = np.linspace(theta, theta - np.sign(self.dor_vec[1])*np.pi, 400)
+        x1 = p[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
+        y1 = p[1] - (1/m)*(x1 - p[0])
 
-        elif (self.animal_x_center - self.anterior[0] > 0):
-            theta = np.arctan2(p1[0] - cx, p1[1] - cy)
-            s = np.linspace(theta, theta - np.sign(self.dor_vec[1])*np.pi, 400)
+        x2 = p[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
+        y2 = p[1] - (1/m)*(x2 - p[0])
 
-        x = cy + int(diameter/2)*np.cos(s)
-        y = cx + int(diameter/2)*np.sin(s)
+        if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) > self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
+            return x1, y1
+        else:
+            return x2, y2
 
-        self.pedestal = np.array([x, y]).T
-    
     def fit_pedestal(self, im, sigma=1):
 
         if self.pedestal is None: self.initialize_snake(im)
@@ -963,15 +961,19 @@ class Clone(object):
                     return (yy[j], xx[j])          # intentionally return first trough
         return
 
-    def find_edge2(self, im, p1, p2, t=0.1, npoints=400):
+    def find_edge2(self, im, p1, p2, t1=0.1, npoints=400, lp=None, t2=2):
 
         xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
         zi = scipy.ndimage.map_coordinates(im, np.vstack((yy, xx)), mode="nearest")
         zi = pd.rolling_mean(zi, 4)
 
         for i in xrange(len(zi)):
-            if zi[i] > t:
-                return (yy[i], xx[i])
+            if zi[i] > t1:
+                if lp == None: return(yy[i], xx[i])
+                elif self.dist((yy[i], xx[i]), lp) < t2:
+                    return (yy[i], xx[i])
+                else:
+                    continue
 
     def gradient(self, im, direction, sigma=0.5):
 
