@@ -20,21 +20,25 @@ flags = []
 
 if analysis == True:
     #flags.append("getPxtomm")
-    #flags.append("doEyeAreaCalc")
-    #flags.append("doAntennaMasking")
-    #flags.append("doAnimalAreaCalc")
-    #flags.append("getOrientationVectors")
-    #flags.append("doLength")
+    flags.append("doEyeAreaCalc")
+    flags.append("doAntennaMasking")
+    flags.append("doAnimalAreaCalc")
+    flags.append("getOrientationVectors")
+    flags.append("doLength")
     #flags.append("fitPedestal")
-    flags.append("doPedestalScore")
+    #flags.append("doPedestalScore")
 
 print "Loading clone data\n"
 
 try:
     df = utils.csv_to_df(os.path.join(ANALYSISDIR, current))
     loaded = utils.df_to_clonelist(df, datadir=DATADIR)
-    clones = utils.build_clonelist(DATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
-    clones = utils.update_clone_list(clones, loaded)
+
+    dfout = utils.csv_to_df(os.path.join(ANALYSISDIR, out))
+    out_loaded = utils.df_to_clonelist(dfout, datadir=DATADIR)
+    
+    clones = utils.update_clone_list(loaded, out_loaded)
+
     print "Successfully updated clone list"
 
 except (AttributeError, IOError):
@@ -110,28 +114,30 @@ if analysis:
         for dt in clones[barcode].keys():
             
             clone = clones[barcode][dt]["full"]
-            if clone.filebase not in ["110558_D8_256_ctrl_2B_RigB_20170921T142058.bmp"]:
-                
-                if clone.filebase in pedestal_data.keys(): clone.pedestal_analyzed = True
-                else: clone.pedestal_analyzed = False
-
-                print "Analyzing " + clone.filebase
-                utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
-                utils.write_clone(clone, cols, ANALYSISDIR, out)
-                    
-                if "fitPedestal" in flags:
-                    if not clone.pedestal_analyzed:
-                        try:
-                            im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
-                            clone.initialize_snake(im)
-                            print "Fitting pedestal for " + clone.filebase
-                            clone.fit_pedestal(im)
-                            pedestal_data[clone.filebase] = [clone.pedestal, clone.iPedestal]
-
-                            utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, "pedestal_final.txt"))
-
-                        except Exception as e:
-                            print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
-
             
-    #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
+            if not clone.analyzed:
+                if clone.filebase not in ["110558_D8_256_ctrl_2B_RigB_20170921T142058.bmp"]:
+                    
+                    if clone.filebase in pedestal_data.keys(): clone.pedestal_analyzed = True
+                    else: clone.pedestal_analyzed = False
+
+                    print "Analyzing " + clone.filebase
+                    utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
+                    utils.write_clone(clone, cols, ANALYSISDIR, out)
+                        
+                    if "fitPedestal" in flags:
+                        if not clone.pedestal_analyzed:
+                            try:
+                                im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
+                                clone.initialize_snake(im)
+                                print "Fitting pedestal for " + clone.filebase
+                                clone.fit_pedestal(im)
+                                pedestal_data[clone.filebase] = [clone.pedestal, clone.iPedestal]
+
+                                utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, "pedestal_final.txt"))
+
+                            except Exception as e:
+                                print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
+
+                    
+        #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
