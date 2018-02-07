@@ -12,6 +12,7 @@ ext = '.bmp'
 
 current = "analysis_results.txt"
 out = "analysis_results_current.txt"
+pedestal = "pedestal.txt"
 
 analysis = True
 build_clonedata = False
@@ -20,12 +21,12 @@ flags = []
 
 if analysis == True:
     #flags.append("getPxtomm")
-    flags.append("doEyeAreaCalc")
-    flags.append("doAntennaMasking")
-    flags.append("doAnimalAreaCalc")
-    flags.append("getOrientationVectors")
-    flags.append("doLength")
-    #flags.append("fitPedestal")
+    #flags.append("doEyeAreaCalc")
+    #flags.append("doAntennaMasking")
+    #flags.append("doAnimalAreaCalc")
+    #flags.append("getOrientationVectors")
+    #flags.append("doLength")
+    flags.append("fitPedestal")
     #flags.append("doPedestalScore")
 
 print "Loading clone data\n"
@@ -105,7 +106,7 @@ except (IOError, OSError):
 
 try:
     "Loading pedestal data"
-    pedestal_data = utils.load_pedestal_data( os.path.join(ANALYSISDIR, "pedestal_final.txt") )
+    pedestal_data = utils.load_pedestal_data( os.path.join(ANALYSISDIR, pedestal) )
 except IOError:
     pedestal_data = {}
 
@@ -124,6 +125,7 @@ if analysis:
                     print "Analyzing " + clone.filebase
                     utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
                     utils.write_clone(clone, cols, ANALYSISDIR, out)
+                    
                         
                     if "fitPedestal" in flags:
                         if not clone.pedestal_analyzed:
@@ -134,10 +136,9 @@ if analysis:
                                 clone.fit_pedestal(im)
                                 pedestal_data[clone.filebase] = [clone.pedestal, clone.iPedestal]
 
-                                utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, "pedestal_final.txt"))
+                                utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
 
                             except Exception as e:
                                 print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
 
-                    
-        #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
+                            #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)

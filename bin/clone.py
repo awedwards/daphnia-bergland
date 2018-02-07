@@ -837,16 +837,18 @@ class Clone(object):
 
         mp = 0.67*ex + 0.33*tx, 0.67*ey + 0.33*ty
 
-        x, y = dorsal_orth(mp, d, m)
+        x, y = self.dorsal_orth(mp, d, m)
         p2 = self.find_edge2(edges, (x, y), mp)
 
         m2 = (p1[1] - p2[1])/(p1[0] - p2[0])
-        xx1, yy1 = ventral_orth(p1, d*0.25, m2)
-        xx2, yy2 = ventral_orth(p2, d*0.25, m2)
+        xx1, yy1 = self.ventral_orth(p1, d*0.25, m2)
+        xx2, yy2 = self.ventral_orth(p2, d*0.25, m2)
 
+        bsx, bsy = np.linspace(p1[0], p2[0], 400), np.linspace(p1[1], p2[1], 400)
         xx, yy = np.linspace(xx1, xx2, 400), np.linspace(yy1, yy2, 400)
-        
-        self.pedestal = np.vstack((xx, yy))
+
+        self.baseline = np.array([bsx, bsy]).T
+        self.pedestal = np.array([xx, yy]).T
 
     def dorsal_orth(self, p, d, m):
 
@@ -878,24 +880,15 @@ class Clone(object):
 
         if self.pedestal is None: self.initialize_snake(im)
         ps = self.pedestal
+        bs = self.baseline
 
         hc = self.high_contrast(im)
         edges = cv2.Canny(np.array(255*gaussian(hc, sigma), dtype=np.uint8), 0, 50)/255
     
         ex, ey = self.eye_x_center, self.eye_y_center
     
-        snakex = ps[:,1]
-        snakey = ps[:,0]
-
-        x1 = snakex[0]
-        y1 = snakey[0]
-        x2 = snakex[-1]
-        y2 = snakey[-1]
-
-        m = (y2 - y1)/(x2 - x1)
-        b = y1 - m*x1
-
-        m2 = -1/m
+        snakex = ps[:,0]
+        snakey = ps[:,1]
 
         d = []
         idx = []
@@ -903,13 +896,9 @@ class Clone(object):
         n = len(snakex)
         for i in xrange(n):
 
-            p2 = snakex[i], snakey[i]
-            b2 = p2[1] - m2*p2[0]
+            p2 = snakey[i], snakex[i]
+            p1 = bs[i,0], bs[i,1]
 
-            x = (b2 - b)/(m - m2)
-            y = (m2*x + b2)
-            p1 = x, y
-            
             e = self.find_edge2(edges, p2, p1)
             
             if e is not None:
@@ -924,7 +913,6 @@ class Clone(object):
         self.pedestal_max_height = np.max(data[:,1])
 
     def get_pedestal_area(self, data):
-        print data.shape 
         self.pedestal_area = np.sum(0.5*(self.dist(self.head, self.dorsal_point)/400)*(data[1:][:,0] - data[0:-1][:,0])*(data[1:][:,1] + data[0:-1][:,1]))
         
     def get_pedestal_theta(self, data, n=200):
