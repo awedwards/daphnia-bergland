@@ -819,10 +819,10 @@ class Clone(object):
 
         return idx_x, idx_y
 
-    def initialize_snake(self, im):
+    def initialize_pedestal(self, im):
         
         ex, ey = self.eye_x_center, self.eye_y_center
-        tx, ty = self.tail[0], self.tail[1]
+        tx, ty = self.tail_tip[0], self.tail_tip[1]
 
         hc = self.high_contrast(im)
         edges = cv2.Canny(np.array(255*gaussian(hc, 1.25), dtype=np.uint8), 0, 50)/255
@@ -832,17 +832,17 @@ class Clone(object):
 
         d = self.dist((ex, ey), (self.dorsal_mask_endpoints[0][0], self.dorsal_mask_endpoints[0][1]))
         
-        x, y = self.dorsal_orth((ex, ey), d, m)
+        x, y = self.orth((ex, ey), d, m)
         p1 = self.find_edge2(edges, (x, y), (ex, ey))
 
         mp = 0.67*ex + 0.33*tx, 0.67*ey + 0.33*ty
 
-        x, y = self.dorsal_orth(mp, d, m)
+        x, y = self.orth(mp, d, m)
         p2 = self.find_edge2(edges, (x, y), mp)
 
         m2 = (p1[1] - p2[1])/(p1[0] - p2[0])
-        xx1, yy1 = self.ventral_orth(p1, d*0.25, m2)
-        xx2, yy2 = self.ventral_orth(p2, d*0.25, m2)
+        xx1, yy1 = self.orth(p1, d*0.25, m2)
+        xx2, yy2 = self.orth(p2, d*0.25, m2)
 
         bsx, bsy = np.linspace(p1[0], p2[0], 400), np.linspace(p1[1], p2[1], 400)
         xx, yy = np.linspace(xx1, xx2, 400), np.linspace(yy1, yy2, 400)
@@ -850,7 +850,9 @@ class Clone(object):
         self.baseline = np.array([bsx, bsy]).T
         self.pedestal = np.array([xx, yy]).T
 
-    def dorsal_orth(self, p, d, m):
+    def orth(self, p, d, m):
+
+        cx, cy = self.animal_x_center, self.animal_y_center
 
         x1 = p[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
         y1 = p[1] - (1/m)*(x1 - p[0])
@@ -858,34 +860,20 @@ class Clone(object):
         x2 = p[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
         y2 = p[1] - (1/m)*(x2 - p[0])
 
-        if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) < self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
-            return x1, y1
-        else:
+        if self.dist((x1, y1), (cx, cy)) < self.dist((x2, y2), (cx, cy)):
             return x2, y2
-
-    def ventral_orth(self, p, d, m):
-
-        x1 = p[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
-        y1 = p[1] - (1/m)*(x1 - p[0])
-
-        x2 = p[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
-        y2 = p[1] - (1/m)*(x2 - p[0])
-
-        if self.dist((x1, y1), (self.dorsal[0], self.dorsal[1])) > self.dist((x2, y2), (self.dorsal[0], self.dorsal[1])):
-            return x1, y1
         else:
-            return x2, y2
+            return x1, y1
 
     def fit_pedestal(self, im, sigma=1):
 
-        if self.pedestal is None: self.initialize_snake(im)
+        if self.pedestal is None: self.initialize_pedestal(im)
+        
         ps = self.pedestal
         bs = self.baseline
 
         hc = self.high_contrast(im)
         edges = cv2.Canny(np.array(255*gaussian(hc, sigma), dtype=np.uint8), 0, 50)/255
-    
-        ex, ey = self.eye_x_center, self.eye_y_center
     
         snakex = ps[:,0]
         snakey = ps[:,1]
@@ -896,7 +884,7 @@ class Clone(object):
         n = len(snakex)
         for i in xrange(n):
 
-            p2 = snakey[i], snakex[i]
+            p2 = snakex[i], snakey[i]
             p1 = bs[i,0], bs[i,1]
 
             e = self.find_edge2(edges, p2, p1)
@@ -913,6 +901,7 @@ class Clone(object):
         self.pedestal_max_height = np.max(data[:,1])
 
     def get_pedestal_area(self, data):
+        
         self.pedestal_area = np.sum(0.5*(self.dist(self.head, self.dorsal_point)/400)*(data[1:][:,0] - data[0:-1][:,0])*(data[1:][:,1] + data[0:-1][:,1]))
         
     def get_pedestal_theta(self, data, n=200):
@@ -1031,17 +1020,13 @@ class Clone(object):
         arr = np.empty(n)
         arr[:] = np.nan
         arr_w = arr.copy()
-
-        ex, ey = self.eye_x_center, self.eye_y_center
+        
+        p = np.array([list(x) for x in p])
+        idx = np.array(idx)
 
         x1, y1 = p[0,:]
         x2, y2 = p[p.shape[0]-1, :]
 
-	if self.dist((x1, y1), (ex, ey)) > self.dist((x2, y2), (ex, ey)):
-	    p = np.flip(p, axis = 0)
-	    x1, y1 = p[0,:]
-	    x2, y2 = p[p.shape[0]-1, :]
-       
 	m1 = (y2 - y1)/(x2 - x1)
 	b1 = y1 - m1*x1
 	
@@ -1058,10 +1043,12 @@ class Clone(object):
         h = np.linalg.norm(p - baseline, axis=1)
 	arr[idx.astype(np.uint16)] = h
         self.pedestal_height = arr
-
+ 
         self.pedestal_max_height_pixels, self.pedestal_area_pixels = self.pedestal_stats(h, baseline)        
 	self.pedestal_max_height = self.pedestal_max_height_pixels/self.pixel_to_mm	
 	self.pedestal_area = self.pedestal_area_pixels/np.power(self.pixel_to_mm, 2)
+        
+        print "here"
 
         try:
 
