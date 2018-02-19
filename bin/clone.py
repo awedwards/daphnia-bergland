@@ -76,9 +76,8 @@ class Clone(object):
         self.animal_length_pixels = None
         self.animal_length = None
         self.pedestal = None
-        self.iPedestal = None
-        self.pedestal_size = None
-        self.pedestal_max_height = None
+        self.ipedestal = None
+        self.binned_pedestal_data = []
         self.pedestal_area = None
         self.pedestal_theta = None
         self.snake = None
@@ -86,8 +85,8 @@ class Clone(object):
         
         self.pedestal_max_height_pixels = None
         self.pedestal_area_pixels = None
-	self.pedestal_max_height = None
-	self.pedestal_area = None
+        self.pedestal_max_height = None
+        self.pedestal_area = None
 
         self.pedestal_window_max_height_pixels = None
         self.pedestal_window_area_pixels = None
@@ -132,7 +131,11 @@ class Clone(object):
         self.tail = None
         self.tail_tip = None
         self.dorsal_point = None
-    
+
+        # quality check flags
+        self.automated_PF = "U"
+        self.manual_PF = "U"
+
         self.analyzed = False
 
     def convert_treatment(self):
@@ -894,7 +897,7 @@ class Clone(object):
                 idx.append(i) 
 
         self.pedestal = d
-        self.iPedestal = idx
+        self.ipedestal = idx
 
     def get_pedestal_max_height(self, data):
         
@@ -975,6 +978,7 @@ class Clone(object):
         down = np.arange(-1, n-1)
 
         return (x * (y.take(up) - y.take(down))).sum() / 2
+    
     def intersect(self, s1, s2):
 
         x1, y1, x2, y2 = s1
@@ -1015,43 +1019,29 @@ class Clone(object):
 
         return (x - np.min(x)) / (np.max(x) - np.min(x))
 
-    def analyze_pedestal(self, p, idx, n=400, window=50):
+    def analyze_pedestal(self, n=400, window=50):
 
         arr = np.empty(n)
         arr[:] = np.nan
         arr_w = arr.copy()
         
-        p = np.array([list(x) for x in p])
-        idx = np.array(idx)
+        p = np.array([list(x) for x in self.pedestal])
+        idx = np.array(self.ipedestal)
+        p = self.flip()
 
-        x1, y1 = p[0,:]
-        x2, y2 = p[p.shape[0]-1, :]
+        h, baseline = self.calculate_pedestal_heights(p, idx)
 
-	m1 = (y2 - y1)/(x2 - x1)
-	b1 = y1 - m1*x1
-	
-	# scalar
-	m2 = -1/m1
-	
-	# n-by-1 vector
-	b2 = p[:,1] - m2*p[:,0]
-	
-	x2 = (b2 - b1)/(m1 - m2)
-	y2 = m1*x2 + b1
-	
-	baseline = np.vstack((x2, y2)).T
-        h = np.linalg.norm(p - baseline, axis=1)
-	arr[idx.astype(np.uint16)] = h
+        arr[idx.astype(np.uint16)] = h
         self.pedestal_height = arr
- 
-        self.pedestal_max_height_pixels, self.pedestal_area_pixels = self.pedestal_stats(h, baseline)        
-	self.pedestal_max_height = self.pedestal_max_height_pixels/self.pixel_to_mm	
-	self.pedestal_area = self.pedestal_area_pixels/np.power(self.pixel_to_mm, 2)
-        
-        print "here"
+     
+        self.pedestal_max_height_pixels, self.pedestal_area_pixels = np.nanmax(h), self.trapezoid_area(h, baseline)
+        self.pedestal_max_height = self.pedestal_max_height_pixels/self.pixel_to_mm	
+        self.pedestal_area = self.pedestal_area_pixels/np.power(self.pixel_to_mm, 2)
+            
+        if len(self.ipedestal) < 400:
+            self.interpolate()
 
-        try:
-
+            
             max_idx = np.nanargmax(arr)
             lb = np.max([0, max_idx-int(window/2)])
             ub = np.min([max_idx+int(window/2), len(h)])
@@ -1062,15 +1052,99 @@ class Clone(object):
 
             self.pedestal_window_height = arr_w
             
-            self.pedestal_window_max_height_pixels, self.pedestal_window_area_pixels = self.pedestal_stats(h_w, baseline_w)
+            self.pedestal_window_max_height_pixels, self.pedestal_window_area_pixels = np.nanmax(h_w), self.trapezoid_area(h_w, baseline_w)
             self.pedestal_window_max_height = self.pedestal_window_max_height_pixels/self.pixel_to_mm
             self.pedestal_window_area = self.pedestal_window_area_pixels/np.power(self.pixel_to_mm, 2)
 
         except ValueError:
             print "Pedestal not fit properly"
-
-    def pedestal_stats(self, h, baseline):
+    
+    def flip(self):
         
-	w = np.linalg.norm(baseline[0:-1, :] - baseline[1:, :], axis=1)
+        p = self.pedestal
+
+        p = np.array([list(x) for x in p])
+
+        x1, y1 = p[0, :]
+        x2, y2 = p[p.shape[0]-1, :]
+        ex, ey = self.eye_x_center, self.eye_y_center
+
+        if self.dist((x1, y1), (ex, ey)) > self.dist((x2, y2), (ex, ey)):
+            return np.flip(p, axis = 0)
+        
+        return p
+        
+    def calculate_pedestal_heights(self, p, idx):
+
+        x1, y1 = p[0,:]
+        x2, y2 = p[p.shape[0]-1, :]
+
+        m2 = -1/m1
+        b2 = p[:,1] - m2*p[:,0]
+        x2 = (b2 - b1)/(m1 - m2)
+        y2 = m1*x2 + b1
+        
+        baseline = np.vstack((x2, y2)).T
+
+        return np.linalg.norm(p - baseline, axis=1), baseline
+
+    def trapezoid_area(self, h, baseline):
+        
+        w = np.linalg.norm(baseline[0:-1, :] - baseline[1:, :], axis=1)
       
-        return np.nanmax(h), np.nansum((h[0:-1] + h[1:])*(w/2))
+        return np.nansum((h[0:-1] + h[1:])*(w/2))
+
+    def interpolate(self):
+
+        p = self.pedestal
+        p = np.array([list(x) for x in p])
+        idx = np.array(self.ipedestal)
+
+        new_idx = [0]
+        new_p = [p[0,:]]
+
+        start = idx[0]
+        for i in xrange(start+1):
+            new_idx.append(i)
+            new_p.append(p[0,:])
+
+        for i in xrange(len(idx) - 1):
+            d = idx[i+1] - idx[i]
+
+            if d > 1:
+                x1, x2 = p[i, :]
+                x2, y2 = p[i+1, :]
+
+                xx, yy = np.linspace(x1, x2, d), np.linspace(y1, y2, d)
+
+                [new_p.append([xx[x], yy[x]]) for x in xrange(0, len(xx))]
+                [new_idx.append(x) for x in xrange(idx[i] + 1, idx[i+1] + 1)]
+            else:
+                new_p.append(p[i+1, :])
+                new_idx.append(idx[i+1])
+
+        end = idx[-1]
+        
+        for i in xrange(end+1, n):
+            new_idx.append(i)
+            new_p.append(p[p.shape[0]-1,:])
+            
+        self.interp_pedestal = np.vstack(new_p)
+        self.interp_idx = np.array(new_idx)
+        
+
+    def compute_features(self):
+
+        bins = 20
+        len_idx = len(self.ipedestal)
+
+        if len_idx < 400:
+            self.interpolate()
+            h, bs = self.calculate_pedestal_heights(self.interp_pedestal, self.interp_idx)
+        else:
+            h, bs = self.calculate_pedestal_heights(self.pedestal, self.ipedestal)
+
+        w = len(h)/bins
+
+        for i in xrange(bins):
+            self.binned_pedestal_data.append(np.mean(h[int(i*w):int(i*w+w)]))
