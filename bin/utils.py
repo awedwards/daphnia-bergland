@@ -9,6 +9,8 @@ from collections import defaultdict
 from openpyxl import load_workbook 
 from ast import literal_eval
 import cv2
+from sklearn import svm
+from sklearn.externals import joblib
 
 def save_pkl(obj, path, name):
     with open(os.path.join(path, name) + '.pkl','wb') as f:
@@ -309,3 +311,7 @@ def analyze_clone(clone, flags, pedestal_data=None):
                     print "No pedestal data for clone " + clone.filebase
     except Exception as e:
         print "Error during analysis of " + clone.filepath + ": " + str(e)
+
+def load_SVM( path = '', name="daphnia_pedestal_fit_check_SVM_20180219.pkl"):
+
+    return joblib.load(os.path.join(path, name))

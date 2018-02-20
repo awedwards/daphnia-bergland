@@ -9,6 +9,7 @@ import scipy
 import scipy.ndimage
 from skimage import measure
 from skimage.filters import gaussian
+from sklearn import svm
 import utils
 from collections import defaultdict
 
@@ -131,6 +132,8 @@ class Clone(object):
         self.tail = None
         self.tail_tip = None
         self.dorsal_point = None
+
+        self.clf = None
 
         # quality check flags
         self.automated_PF = "U"
@@ -1056,9 +1059,6 @@ class Clone(object):
             self.pedestal_window_max_height = self.pedestal_window_max_height_pixels/self.pixel_to_mm
             self.pedestal_window_area = self.pedestal_window_area_pixels/np.power(self.pixel_to_mm, 2)
 
-        except ValueError:
-            print "Pedestal not fit properly"
-    
     def flip(self):
         
         p = self.pedestal
@@ -1079,6 +1079,9 @@ class Clone(object):
         x1, y1 = p[0,:]
         x2, y2 = p[p.shape[0]-1, :]
 
+        m1 = (y2 - y1)/(x2 - x1)
+        b1 = y1 - m1*x1
+
         m2 = -1/m1
         b2 = p[:,1] - m2*p[:,0]
         x2 = (b2 - b1)/(m1 - m2)
@@ -1094,7 +1097,7 @@ class Clone(object):
       
         return np.nansum((h[0:-1] + h[1:])*(w/2))
 
-    def interpolate(self):
+    def interpolate(self, n=400):
 
         p = self.pedestal
         p = np.array([list(x) for x in p])
@@ -1112,7 +1115,7 @@ class Clone(object):
             d = idx[i+1] - idx[i]
 
             if d > 1:
-                x1, x2 = p[i, :]
+                x1, y1 = p[i, :]
                 x2, y2 = p[i+1, :]
 
                 xx, yy = np.linspace(x1, x2, d), np.linspace(y1, y2, d)
@@ -1148,3 +1151,15 @@ class Clone(object):
 
         for i in xrange(bins):
             self.binned_pedestal_data.append(np.mean(h[int(i*w):int(i*w+w)]))
+
+    def fit_quality_check(self):
+
+        clf = utils.load_SVM()
+        X = self.binned_pedestal_data
+
+        Yhat = clf.predict(X)
+
+        if Yhat:
+            self.automated_PF = "F"
+        else:
+            self.automated_PF = "P"
