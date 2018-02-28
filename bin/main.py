@@ -8,9 +8,10 @@ import cv2
 DATADIR = "/mnt/spicy_4/daphnia/data"
 ANALYSISDIR = "/mnt/spicy_4/daphnia/analysis/"
 INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
+PONDSEASONFILEPATH = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/season_metadata.csv"
 ext = '.bmp'
 
-current = "analysis_results_current.txt"
+current = "analysis_results_20180220.txt"
 out = "analysis_results_current.txt"
 pedestal = "pedestal.txt"
 
@@ -20,34 +21,35 @@ build_clonedata = False
 flags = []
 
 if analysis == True:
-    flags.append("getPxtomm")
-    flags.append("doEyeAreaCalc")
-    flags.append("doAntennaMasking")
-    flags.append("doAnimalAreaCalc")
-    flags.append("getOrientationVectors")
-    flags.append("doLength")
-    flags.append("fitPedestal")
+    #flags.append("getPxtomm")
+    #flags.append("doEyeAreaCalc")
+    #flags.append("doAntennaMasking")
+    #flags.append("doAnimalAreaCalc")
+    #flags.append("getOrientationVectors")
+    #flags.append("doLength")
+    #flags.append("fitPedestal")
     #flags.append("doPedestalScore")
+    flags.append("doQualityCheck")
 
 print "Loading clone data\n"
 
 try:
-    clones = utils.build_clonelist(DATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
+    clones = utils.build_clonelist(DATADIR, ANALYSISDIR, INDUCTIONMETADATADIR, PONDSEASONFILEPATH)
 
     df = utils.csv_to_df(os.path.join(ANALYSISDIR, current))
     loaded = utils.df_to_clonelist(df, datadir=DATADIR)
     
-    dfout = utils.csv_to_df(os.path.join(ANALYSISDIR, out))
-    out_loaded = utils.df_to_clonelist(dfout, datadir=DATADIR)
+    #dfout = utils.csv_to_df(os.path.join(ANALYSISDIR, out))
+    #out_loaded = utils.df_to_clonelist(dfout, datadir=DATADIR)
     
+    #clones = utils.update_clone_list(clones, out_loaded)
     clones = utils.update_clone_list(clones, loaded)
-    clones = utils.update_clone_list(clones, out_loaded)
-
+    
     print "Successfully updated clone list"
 
 except (AttributeError, IOError):
     
-    clones = utils.build_clonelist(DATADIR, ANALYSISDIR, INDUCTIONMETADATADIR)
+    clones = utils.build_clonelist(DATADIR, ANALYSISDIR, INDUCTIONMETADATADIR, PONDSEASONFILEPATH)
 
 cols = ["filebase",
         "barcode",
@@ -97,7 +99,9 @@ cols = ["filebase",
         "pedestal_window_max_height_pixels",
         "pedestal_window_area_pixels",
         "pedestal_window_max_height",
-        "pedestal_window_area"]
+        "pedestal_window_area",
+        "automated_PF",
+        "manual_PF"]
 
 try:
     if os.stat(os.path.join(ANALYSISDIR, out)).st_size == 0:

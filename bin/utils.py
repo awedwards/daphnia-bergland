@@ -78,6 +78,18 @@ def load_induction_data(filepath):
 
     return inductiondates
 
+def load_pond_season_data(filepath):
+
+    print "Loading pond and season metadata\n"
+    df = pd.read_csv( filepath )
+
+    pond_season_dict = {}
+
+    for i, row in df.iterrows():
+        pond_season_dict[row['cloneid']] = {'pond':row['pond'], 'id':row['id'], 'season':row['season']}
+
+    return pond_season_dict
+
 def load_manual_scales(filepath):
 
      # load manual_scales
@@ -118,13 +130,14 @@ def load_pedestal_data(filepath):
 
     return data
 
-def build_clonelist(datadir, analysisdir, inductiondatadir, ext=".bmp"):
+def build_clonelist(datadir, analysisdir, inductiondatadir, pondseasondir, ext=".bmp"):
     
     # input: paths to data, segmented data and metadata files
 
     clones = recursivedict()
    
     inductiondates = load_induction_data(inductiondatadir)
+    pond_season_md = load_pond_season_data(pondseasondir)
     manual_scales = load_manual_scales(analysisdir)
 
     files = os.listdir(datadir)
@@ -157,6 +170,9 @@ def build_clonelist(datadir, analysisdir, inductiondatadir, ext=".bmp"):
                         rig,
                         datetime,
                         induction,
+                        pond_season_md[clone_id]['pond'],
+                        pond_season_md[clone_id]['id'],
+                        pond_season_md[clone_id]['season'],
                         datadir)
         
                 if imagetype == "close":
@@ -176,9 +192,10 @@ def csv_to_df(csvfile):
         print "Could not load csv because: " + str(e)
         return
 
-def df_to_clonelist(df, datadir = None, segdir = None):
+def df_to_clonelist(df, datadir = None):
 
     clones = recursivedict()
+    clf = load_SVM()
 
     for index, row in df.iterrows():
         clone = Clone( row['filebase'],
@@ -190,7 +207,11 @@ def df_to_clonelist(df, datadir = None, segdir = None):
                 row['rig'],
                 row['datetime'],
                 row['inductiondate'],
-                datadir)
+                row['pond'],
+                row['id'],
+                row['season'],
+                datadir,
+                clf=clf)
 
         for k in row.keys():
             try:
@@ -202,8 +223,9 @@ def df_to_clonelist(df, datadir = None, segdir = None):
     
     return clones
 
-def dfrow_to_clonelist(df, irow, datadir = None, segdir = None):
-
+def dfrow_to_clonelist(df, irow, datadir = None):
+    
+    clf = load_SVM()
     row = df.iloc[irow]
 
     return Clone( row['filebase'],
@@ -215,14 +237,18 @@ def dfrow_to_clonelist(df, irow, datadir = None, segdir = None):
                 row['rig'],
                 row['datetime'],
                 row['inductiondate'],
-                datadir)
+                row['pond'],
+                row['id'],
+                row['season'],
+                datadir,
+                clf=clf)
 
 def update_clone_list(clones, loadedclones):
 
      for barcode in loadedclones.iterkeys():
         for dt in loadedclones[barcode].iterkeys():
             clones[barcode][dt]['full'] = loadedclones[barcode][dt]['full']
-            clones[barcode][dt]['full'].analyzed = True
+            clones[barcode][dt]['full'].analyzed = False
      return clones  
 
 def save_clonelist(clones, path, outfile, cols):
@@ -309,6 +335,15 @@ def analyze_clone(clone, flags, pedestal_data=None):
 
                 except KeyError:
                     print "No pedestal data for clone " + clone.filebase
+
+            if "doQualityCheck" in flags:
+                print "Checking quality of pedestal fit"
+                p, idx = pedestal_data[clone.filebase]
+                clone.pedestal = np.array([list(x) for x in p])
+                clone.ipedestal = np.array(idx)
+                clone.compute_features()
+                clone.fit_quality_check()
+                 
     except Exception as e:
         print "Error during analysis of " + clone.filepath + ": " + str(e)
 
