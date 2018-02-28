@@ -15,38 +15,15 @@ from collections import defaultdict
 
 class Clone(object):
     
-    def __init__(self,filebase,imtype,barcode,cloneid,treatment,replicate,rig,datetime,induction,datadir):
+    def __init__(self,filebase,imtype,barcode,pond_cloneid,treatment,replicate,rig,datetime,induction,pond,cid,season,datadir,clf=None):
         
         self.imtype = imtype
-        self.cloneid = cloneid
-        self.pond = None
-        self.id = None
-        self.pond, self.id = utils.parsePond(self.cloneid)
+        self.cloneid = pond_cloneid
+        self.pond = pond
+        self.id = cid
+        self.season = season
         self.sampling = None
-
-        if self.cloneid in ["C14","LD33","Chard","D8_4A","D8_6A", "D8_6A","D8_7A","Cyril"]:
-            self.season = "misc"
-        elif self.pond == "AD8":
-            self.season = "spring_2016"
-        elif self.pond == "D8":
-            self.season = "spring_2017"
-        elif "AW" in self.pond:
-            self.season = "spring_2016"
-        elif self.pond == "AD10":
-            self.season = "spring_2016"
-        elif self.pond == "D10":
-            self.season = "fall_2016"
-        elif self.pond == "DBunk":
-            self.season = "spring_2017"
-        else:
-            self.season = "other"
         
-        if self.season == "spring_2017":
-            if (self.pond == "D8") or (self.pond == "DBunk"):
-                if int(self.id) < 500:
-                    self.sampling = "first_sampling"
-                else: self.sampling = "second_sampling"
-
         if self.cloneid in ["D8_183","D8_191","D8_213","DBunk_90","DBunk_131","DBunk_132"]:
             self.control = True
         else: self.control = False
@@ -133,7 +110,7 @@ class Clone(object):
         self.tail_tip = None
         self.dorsal_point = None
 
-        self.clf = None
+        self.clf = clf
 
         # quality check flags
         self.automated_PF = "U"
