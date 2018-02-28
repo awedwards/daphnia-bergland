@@ -11,9 +11,9 @@ INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 PONDSEASONFILEPATH = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/season_metadata.csv"
 ext = '.bmp'
 
-current = "analysis_results_20180220.txt"
-out = "analysis_results_current.txt"
-pedestal = "pedestal.txt"
+current = "analysis_results_current.txt"
+out = "analysis_results_update.txt"
+pedestal = "pedestal_update.txt"
 
 analysis = True
 build_clonedata = False
@@ -27,8 +27,8 @@ if analysis == True:
     #flags.append("doAnimalAreaCalc")
     #flags.append("getOrientationVectors")
     #flags.append("doLength")
-    #flags.append("fitPedestal")
-    #flags.append("doPedestalScore")
+    flags.append("fitPedestal")
+    flags.append("doPedestalScore")
     flags.append("doQualityCheck")
 
 print "Loading clone data\n"
@@ -129,24 +129,24 @@ if analysis:
                     if clone.filebase in pedestal_data.keys(): clone.pedestal_analyzed = True
                     else: clone.pedestal_analyzed = False
 
-                    print "Analyzing " + clone.filebase
-                    utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
+                    #print "Analyzing " + clone.filebase
+                    #utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
                     
                         
                     if "fitPedestal" in flags:
                         if not clone.pedestal_analyzed:
-                            try:
-                                im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
-                                clone.initialize_pedestal(im)
-                                print "Fitting pedestal for " + clone.filebase
-                                clone.fit_pedestal(im)
-                                pedestal_data[clone.filebase] = [clone.pedestal, clone.iPedestal]
+                            #try:
+                            im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
+                            clone.initialize_pedestal(im)
+                            print "Fitting pedestal for " + clone.filebase
+                            clone.fit_pedestal(im)
+                            pedestal_data[clone.filebase] = [clone.pedestal, clone.ipedestal]
 
-                                utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
-                                utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
+                            utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
+                            utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
 
-                            except Exception as e:
-                                print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
+                            #except Exception as e:
+                            #    print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
 
                             #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
                     

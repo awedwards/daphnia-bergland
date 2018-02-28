@@ -815,12 +815,12 @@ class Clone(object):
 
         d = self.dist((ex, ey), (self.dorsal_mask_endpoints[0][0], self.dorsal_mask_endpoints[0][1]))
         
-        x, y = self.orth((ex, ey), d, m)
+        x, y = self.orth((ex, ey), d, m, flag="dorsal")
         p1 = self.find_edge2(edges, (x, y), (ex, ey))
 
         mp = 0.67*ex + 0.33*tx, 0.67*ey + 0.33*ty
 
-        x, y = self.orth(mp, d, m)
+        x, y = self.orth(mp, d, m, flag="dorsal")
         p2 = self.find_edge2(edges, (x, y), mp)
 
         m2 = (p1[1] - p2[1])/(p1[0] - p2[0])
@@ -833,9 +833,12 @@ class Clone(object):
         self.baseline = np.array([bsx, bsy]).T
         self.pedestal = np.array([xx, yy]).T
 
-    def orth(self, p, d, m):
+    def orth(self, p, d, m, flag="center"):
 
-        cx, cy = self.animal_x_center, self.animal_y_center
+        if flag == "center":
+            cx, cy = self.animal_x_center, self.animal_y_center
+        elif flag == "dorsal":
+            cx, cy = self.ventral
 
         x1 = p[0] + np.sqrt((d**2)/(1 + 1/(m**2)))
         y1 = p[1] - (1/m)*(x1 - p[0])
