@@ -135,18 +135,18 @@ if analysis:
                         
                     if "fitPedestal" in flags:
                         if not clone.pedestal_analyzed:
-                            #try:
-                            im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
-                            clone.initialize_pedestal(im)
-                            print "Fitting pedestal for " + clone.filebase
-                            clone.fit_pedestal(im)
-                            pedestal_data[clone.filebase] = [clone.pedestal, clone.ipedestal]
+                            try:
+                                im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
+                                clone.initialize_pedestal(im)
+                                print "Fitting pedestal for " + clone.filebase
+                                clone.fit_pedestal(im)
+                                pedestal_data[clone.filebase] = [clone.pedestal, clone.ipedestal]
 
-                            utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
-                            utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
+                                utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
+                                utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
 
-                            #except Exception as e:
-                            #    print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
+                            except Exception as e:
+                                print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
 
                             #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
                     

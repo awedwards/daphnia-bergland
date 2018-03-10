@@ -288,64 +288,64 @@ def write_clone(clone, cols, path, outfile):
 
 def analyze_clone(clone, flags, pedestal_data=None):
 
-    #try:
+    try:
 
-    im = cv2.imread(clone.filepath, cv2.IMREAD_GRAYSCALE)
+        im = cv2.imread(clone.filepath, cv2.IMREAD_GRAYSCALE)
 
-    if "getPxtomm" in flags:
-        print "Extracting pixel-to-mm conversion factor"
-        try:
-            micro = cv2.imread(clone.micro_filepath)
-            clone.pixel_to_mm = clone.calc_pixel_to_mm(micro)
-        except Exception as e:
-            print "Could not extract because: " + str(e)
-
-    if clone.pixel_to_mm is not None:
-        if "doEyeAreaCalc" in flags:
-            print "Calculating area for eye."
-            clone.find_eye(im)
-            clone.get_eye_area()
-
-
-        if "doAntennaMasking" in flags:
-            print "Masking antenna and fitting ellipse to animal."
-            clone.mask_antenna(im)
-
-        if "doAnimalAreaCalc" in flags:
-            print "Calculating area for animal."
-            clone.count_animal_pixels(im)
-            clone.get_animal_area()
-            clone.find_tail()
-
-        if "getOrientationVectors" in flags:
-            print "Calculating orientation vectors."
-            clone.get_orientation_vectors()
-        
-        if "doLength" in flags:
-            print "Calculating length"
-            clone.get_eye_vector("dorsal")
-            clone.get_animal_length()
-
-        if "doPedestalScore" in flags:
-            print "Calculating pedestal area"
+        if "getPxtomm" in flags:
+            print "Extracting pixel-to-mm conversion factor"
             try:
-                coords = pedestal_data[clone.filebase][0]
-                idx = pedestal_data[clone.filebase][1]
-                clone.analyze_pedestal()
+                micro = cv2.imread(clone.micro_filepath)
+                clone.pixel_to_mm = clone.calc_pixel_to_mm(micro)
+            except Exception as e:
+                print "Could not extract because: " + str(e)
 
-            except KeyError:
-                print "No pedestal data for clone " + clone.filebase
+        if clone.pixel_to_mm is not None:
+            if "doEyeAreaCalc" in flags:
+                print "Calculating area for eye."
+                clone.find_eye(im)
+                clone.get_eye_area()
 
-        if "doQualityCheck" in flags:
-            print "Checking quality of pedestal fit"
-            p, idx = pedestal_data[clone.filebase]
-            clone.pedestal = np.array([list(x) for x in p])
-            clone.ipedestal = np.array(idx)
-            clone.compute_features()
-            clone.fit_quality_check()
-             
-    #except Exception as e:
-    #    print "Error during analysis of " + clone.filepath + ": " + str(e)
+
+            if "doAntennaMasking" in flags:
+                print "Masking antenna and fitting ellipse to animal."
+                clone.mask_antenna(im)
+
+            if "doAnimalAreaCalc" in flags:
+                print "Calculating area for animal."
+                clone.count_animal_pixels(im)
+                clone.get_animal_area()
+                clone.find_tail()
+
+            if "getOrientationVectors" in flags:
+                print "Calculating orientation vectors."
+                clone.get_orientation_vectors()
+            
+            if "doLength" in flags:
+                print "Calculating length"
+                clone.get_eye_vector("dorsal")
+                clone.get_animal_length()
+
+            if "doPedestalScore" in flags:
+                print "Calculating pedestal area"
+                try:
+                    coords = pedestal_data[clone.filebase][0]
+                    idx = pedestal_data[clone.filebase][1]
+                    clone.analyze_pedestal()
+
+                except KeyError:
+                    print "No pedestal data for clone " + clone.filebase
+
+            if "doQualityCheck" in flags:
+                print "Checking quality of pedestal fit"
+                p, idx = pedestal_data[clone.filebase]
+                clone.pedestal = np.array([list(x) for x in p])
+                clone.ipedestal = np.array(idx)
+                clone.compute_features()
+                clone.fit_quality_check()
+                 
+    except Exception as e:
+        print "Error during analysis of " + clone.filepath + ": " + str(e)
 
 def load_SVM( path = '', name="daphnia_pedestal_fit_check_SVM_20180219.pkl"):
 
