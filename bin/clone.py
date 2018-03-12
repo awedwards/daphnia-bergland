@@ -1023,11 +1023,11 @@ class Clone(object):
 
         m = (p2[1] - p1[1])/(p2[0] - p1[0])
         b = p1[1] - m*p1[0]
-        i = np.argmax(np.abs(-m*s[:,0] + s[:,1] - b)/np.sqrt(m**2 + 1))
+        ipeak = np.argmax(np.abs(-m*s[:,0] + s[:,1] - b)/np.sqrt(m**2 + 1))
         
-        self.peak = p[i]
+        self.peak = p[ipeak]
         
-        m1 = ((s[i-1,1]-s[i+1,1])/(s[i-1,0]-s[i+1,0]))
+        m1 = ((s[ipeak-1,1]-s[ipeak+1,1])/(s[ipeak-1,0]-s[ipeak+1,0]))
         
         origin = [0,0]
 
@@ -1037,7 +1037,7 @@ class Clone(object):
             qx, qy = self.rotate(origin, s, 2*np.pi - np.arctan(m1))
             
         hw = int(w/2)
-        X = np.vstack([np.concatenate([qx[:i-hw], qx[i+hw:]]), np.concatenate([qy[:i-hw], qy[i+hw:]])])
+        X = np.vstack([np.concatenate([qx[:ipeak-hw], qx[ipeak+hw:]]), np.concatenate([qy[:ipeak-hw], qy[ipeak+hw:]])])
 
         self.polyfit_coeff, self.res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
         poly = np.poly1d(self.polyfit_coeff)
@@ -1045,16 +1045,19 @@ class Clone(object):
         yy = poly(qx)
         diff = qy - yy
         diff[np.where(diff<0)] = 0
-        peak = i
 
-        for j in xrange(peak, len(diff)):
+        for j in xrange(ipeak, len(diff)):
             if diff[j] == 0:
                 ub = j
                 break
-        for j in xrange(peak, 0, -1):
+        for j in xrange(ipeak, 0, -1):
             if diff[j] == 0:
                 lb = j
                 break
+        
+        self.calculate_pedestal_area(qx[lb:ub], diff[lb:ub])
+        self.pedestal_max_height_pixels = np.max(diff[lb:ub])
+        self.pedestal_max_height = self.pedestal_max_height/self.pixel_to_mm
         
 
     def rotate(self, origin, points, phi):
@@ -1081,22 +1084,12 @@ class Clone(object):
             ip = np.max(ip) - ip
             return np.flip(p, axis = 0), ip[::-1]
         
-    def calculate_pedestal_heights(self, p, idx):
-
-        x1, y1 = p[0,:]
-        x2, y2 = p[p.shape[0]-1, :]
-
-        m1 = (y2 - y1)/(x2 - x1)
-        b1 = y1 - m1*x1
-
-        m2 = -1/m1
-        b2 = p[:,1] - m2*p[:,0]
-        x2 = (b2 - b1)/(m1 - m2)
-        y2 = m1*x2 + b1
+    def calc_pedestal_area(self, x, y):
         
-        baseline = np.vstack((x2, y2)).T
+        # calculates the area of pedestal
 
-        return np.linalg.norm(p - baseline, axis=1), baseline
+        self.pedestal_area_pixels = np.abs(np.sum((y[1:] + y[:-1])*(x[1:] - x[:-1])/2))
+        self.pedestal_area = self.pedestal_area_pixels/(self.pixel_to_mm * self.pixel_to_mm)
 
     def trapezoid_area(self, h, baseline):
         
