@@ -110,6 +110,11 @@ class Clone(object):
         self.tail_tip = None
         self.dorsal_point = None
 
+        self.peak = None
+        self.deyecenter_pedestalmax = None
+        self.model_coefficients = None
+        self.residual = None
+
         self.clf = clf
 
         # quality check flags
@@ -879,8 +884,7 @@ class Clone(object):
                 d.append(e)
                 idx.append(i) 
 
-        self.pedestal = d
-        self.ipedestal = idx
+        self.pedestal, self.ipedestal = self.flip(d, idx)
 
     def get_pedestal_max_height(self, data):
         
@@ -1002,57 +1006,66 @@ class Clone(object):
 
         return (x - np.min(x)) / (np.max(x) - np.min(x))
 
-    def analyze_pedestal(self, n=400, window=50):
+    def analyze_pedestal(self, ma=12, w=100, deg=3):
+    
+        # ma = window for moving average
+        # w = exclusion window for pedestal curve fitting
 
-        arr = np.empty(n)
-        arr[:] = np.nan
-        arr_w = arr.copy()
+        self.interpolate()
+        p = self.interp_pedestal
+
+        # smooth pedestal
+        s = pd.rolling_mean(p, ma)
+        s[0:12, :] = p[0:12, :]
+
+        p1 = s[0, :]
+        p2 = s[-1, :]
+
+        m = (p2[1] - p1[1])/(p2[0] - p1[0])
+        b = p1[1] - m*p1[0]
+        i = np.argmax(np.abs(-m*s[:,0] + s[:,1] - b)/np.sqrt(m**2 + 1))
         
-        p = np.array([list(x) for x in self.pedestal])
-        idx = np.array(self.ipedestal)
-        p = self.flip()
-
-        h, baseline = self.calculate_pedestal_heights(p, idx)
-
-        arr[idx.astype(np.uint16)] = h
-        self.pedestal_height = arr
-     
-        self.pedestal_max_height_pixels, self.pedestal_area_pixels = np.nanmax(h), self.trapezoid_area(h, baseline)
-        self.pedestal_max_height = self.pedestal_max_height_pixels/self.pixel_to_mm	
-        self.pedestal_area = self.pedestal_area_pixels/np.power(self.pixel_to_mm, 2)
-            
-        if len(self.ipedestal) < 400:
-            self.interpolate()
-
-            
-            max_idx = np.nanargmax(arr)
-            lb = np.max([0, max_idx-int(window/2)])
-            ub = np.min([max_idx+int(window/2), len(h)])
-            h_w = h[lb:ub] - np.min(h[lb:ub])
-
-            arr_w[idx[lb:ub].astype(np.uint16)] = h_w
-            baseline_w = baseline[lb:ub]
-
-            self.pedestal_window_height = arr_w
-            
-            self.pedestal_window_max_height_pixels, self.pedestal_window_area_pixels = np.nanmax(h_w), self.trapezoid_area(h_w, baseline_w)
-            self.pedestal_window_max_height = self.pedestal_window_max_height_pixels/self.pixel_to_mm
-            self.pedestal_window_area = self.pedestal_window_area_pixels/np.power(self.pixel_to_mm, 2)
-
-    def flip(self):
+        self.peak = p[i]
         
-        p = self.pedestal
+        m1 = ((s[i-1,1]-s[i+1,1])/(s[i-1,0]-s[i+1,0]))
+        
+        origin = [0,0]
 
-        p = np.array([list(x) for x in p])
+        qx, qy = self.rotate(origin, s, np.pi - np.arctan(m1))
 
+        if qy[i] < qy[0]:
+            qx, qy = self.rotate(origin, s, 2*np.pi - np.arctan(m1))
+            
+        hw = int(w/2)
+        X = np.vstack([np.concatenate([qx[:i-hw], qx[i+hw:]]), np.concatenate([qy[:i-hw], qy[i+hw:]])])
+
+        self.polyfit_coeff, self.res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
+        poly = np.poly1d(self.polyfit_coeff)
+
+
+    def rotate(self, origin, points, phi):
+
+        ox, oy = origin
+        px, py = points[:,0], points[:,1]
+
+        qx = ox + np.cos(phi) * (px - ox) - np.sin(phi) * (py - oy)
+        qy = oy + np.sin(phi) * (px - ox) + np.cos(phi) * (py - oy)
+
+        return qx, qy
+
+    def get_deye_pedestalmax(self):
+
+        self.deyecenter_pedestalmax = self.dist((self.eye_x_center, self.eye_y_center), self.peak)
+
+    def flip(p, ip):
+        
         x1, y1 = p[0, :]
         x2, y2 = p[p.shape[0]-1, :]
         ex, ey = self.eye_x_center, self.eye_y_center
 
         if self.dist((x1, y1), (ex, ey)) > self.dist((x2, y2), (ex, ey)):
-            return np.flip(p, axis = 0)
-        
-        return p
+            ip = np.max(ip) - ip
+            return np.flip(p, axis = 0), ip[::-1]
         
     def calculate_pedestal_heights(self, p, idx):
 
@@ -1114,7 +1127,6 @@ class Clone(object):
             
         self.interp_pedestal = np.vstack(new_p)
         self.interp_idx = np.array(new_idx)
-        
 
     def compute_features(self):
 
