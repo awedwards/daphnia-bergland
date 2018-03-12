@@ -1041,7 +1041,21 @@ class Clone(object):
 
         self.polyfit_coeff, self.res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
         poly = np.poly1d(self.polyfit_coeff)
+        
+        yy = poly(qx)
+        diff = qy - yy
+        diff[np.where(diff<0)] = 0
+        peak = i
 
+        for j in xrange(peak, len(diff)):
+            if diff[j] == 0:
+                ub = j
+                break
+        for j in xrange(peak, 0, -1):
+            if diff[j] == 0:
+                lb = j
+                break
+        
 
     def rotate(self, origin, points, phi):
 
