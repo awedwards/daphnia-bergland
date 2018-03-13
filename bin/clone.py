@@ -112,10 +112,8 @@ class Clone(object):
 
         self.peak = None
         self.deyecenter_pedestalmax = None
-        self.model_coefficients = None
-        self.residual = None
-
-        self.clf = clf
+        self.poly_coeff = None
+        self.res = None
 
         # quality check flags
         self.automated_PF = "U"
@@ -1006,10 +1004,11 @@ class Clone(object):
 
         return (x - np.min(x)) / (np.max(x) - np.min(x))
 
-    def analyze_pedestal(self, ma=12, w=100, deg=3):
+    def analyze_pedestal(self, ma=12, w_p=80, deg=3):
     
         # ma = window for moving average
-        # w = exclusion window for pedestal curve fitting
+        # w_p = lower percentile for calculating polynomial model
+        # deg = degree of polynomial model
 
         self.interpolate()
         p = self.interp_pedestal
@@ -1023,8 +1022,19 @@ class Clone(object):
 
         m = (p2[1] - p1[1])/(p2[0] - p1[0])
         b = p1[1] - m*p1[0]
-        ipeak = np.argmax(np.abs(-m*s[:,0] + s[:,1] - b)/np.sqrt(m**2 + 1))
-        
+        h = np.abs(-m*s[:,0] + s[:,1] - b)/np.sqrt(m**2 + 1)
+        ipeak = np.argmax(h)
+        threshold = np.percentile(h, w_p)
+
+        for j in xrange(ipeak, len(h)):
+            if h[j] <= threshold:
+                qub = j
+                break
+        for j in xrange(ipeak, 0, -1):
+            if h[j] <= threshold:
+                qlb = j
+                break
+
         self.peak = p[ipeak]
         
         m1 = ((s[ipeak-1,1]-s[ipeak+1,1])/(s[ipeak-1,0]-s[ipeak+1,0]))
@@ -1039,11 +1049,10 @@ class Clone(object):
         qx -= np.min(qx)
         qy -= np.min(qy)
 
-        hw = int(w/2)
-        X = np.transpose(np.vstack([np.concatenate([qx[:ipeak-hw], qx[ipeak+hw:]]), np.concatenate([qy[:ipeak-hw], qy[ipeak+hw:]])]))
+        X = np.transpose(np.vstack([np.concatenate([qx[:qlb], qx[qub:]]), np.concatenate([qy[:qlb], qy[qub:]])]))
 
-        self.polyfit_coeff, self.res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
-        poly = np.poly1d(self.polyfit_coeff)
+        self.poly_coeff, self.res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
+        poly = np.poly1d(self.poly_coeff)
         
         yy = poly(qx)
         diff = qy - yy
@@ -1058,11 +1067,10 @@ class Clone(object):
                 lb = j
                 break
         
-        self.calculate_pedestal_area(qx[lb:ub], diff[lb:ub])
+        self.calc_pedestal_area(qx[lb:ub], diff[lb:ub])
         self.pedestal_max_height_pixels = np.max(diff[lb:ub])
         self.pedestal_max_height = self.pedestal_max_height/self.pixel_to_mm
         
-
     def rotate(self, origin, points, phi):
 
         ox, oy = origin
@@ -1093,12 +1101,6 @@ class Clone(object):
 
         self.pedestal_area_pixels = np.abs(np.sum((y[1:] + y[:-1])*(x[1:] - x[:-1])/2))
         self.pedestal_area = self.pedestal_area_pixels/(self.pixel_to_mm * self.pixel_to_mm)
-
-    def trapezoid_area(self, h, baseline):
-        
-        w = np.linalg.norm(baseline[0:-1, :] - baseline[1:, :], axis=1)
-      
-        return np.nansum((h[0:-1] + h[1:])*(w/2))
 
     def interpolate(self, n=400):
 
@@ -1137,31 +1139,3 @@ class Clone(object):
             
         self.interp_pedestal = np.vstack(new_p)
         self.interp_idx = np.array(new_idx)
-
-    def compute_features(self):
-
-        bins = 20
-        len_idx = len(self.ipedestal)
-
-        if len_idx < 400:
-            self.interpolate()
-            h, bs = self.calculate_pedestal_heights(self.interp_pedestal, self.interp_idx)
-        else:
-            h, bs = self.calculate_pedestal_heights(self.pedestal, self.ipedestal)
-
-        w = len(h)/bins
-
-        for i in xrange(bins):
-            self.binned_pedestal_data.append(np.mean(h[int(i*w):int(i*w+w)]))
-
-    def fit_quality_check(self):
-
-        clf = utils.load_SVM()
-        X = self.binned_pedestal_data
-
-        Yhat = clf.predict(X)
-
-        if Yhat:
-            self.automated_PF = "F"
-        else:
-            self.automated_PF = "P"
