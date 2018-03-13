@@ -1035,9 +1035,12 @@ class Clone(object):
 
         if qy[i] < qy[0]:
             qx, qy = self.rotate(origin, s, 2*np.pi - np.arctan(m1))
-            
+        
+        qx -= np.min(qx)
+        qy -= np.min(qy)
+
         hw = int(w/2)
-        X = np.vstack([np.concatenate([qx[:ipeak-hw], qx[ipeak+hw:]]), np.concatenate([qy[:ipeak-hw], qy[ipeak+hw:]])])
+        X = np.transpose(np.vstack([np.concatenate([qx[:ipeak-hw], qx[ipeak+hw:]]), np.concatenate([qy[:ipeak-hw], qy[ipeak+hw:]])]))
 
         self.polyfit_coeff, self.res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
         poly = np.poly1d(self.polyfit_coeff)
