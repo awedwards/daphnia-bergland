@@ -876,14 +876,17 @@ class Clone(object):
 
             p2 = snakex[i], snakey[i]
             p1 = bs[i,0], bs[i,1]
+            
+            if len(d) > 0:
+                lp == d[-1]
 
-            e = self.find_edge2(edges, p2, p1)
+            e = self.find_edge2(edges, p2, p1, lp=lp)
             
             if e is not None:
                 d.append(e)
                 idx.append(i) 
-
-        self.pedestal, self.ipedestal = self.flip(d, idx)
+        
+        self.pedestal, self.ipedestal = d, idx
 
     def get_pedestal_max_height(self, data):
         
@@ -1097,7 +1100,7 @@ class Clone(object):
         self.deyecenter_pedestalmax_pixels = self.dist((self.eye_x_center, self.eye_y_center), self.peak)
         self.deyecenter_pedestalmax = self.deyecenter_pedestalmax_pixels/self.pixel_to_mm
 
-    def flip(p, ip):
+    def flip(self, p, ip):
         
         x1, y1 = p[0, :]
         x2, y2 = p[p.shape[0]-1, :]
@@ -1119,7 +1122,7 @@ class Clone(object):
         p = self.pedestal
         p = np.array([list(x) for x in p])
         idx = np.array(self.ipedestal)
-
+        p, idx = self.flip(p, idx)
         new_idx = [0]
         new_p = [p[0,:]]
 
