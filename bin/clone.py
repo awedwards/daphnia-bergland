@@ -9,8 +9,6 @@ import scipy
 import scipy.ndimage
 from skimage import measure
 from skimage.filters import gaussian
-from sklearn import svm
-import utils
 from collections import defaultdict
 
 class Clone(object):
@@ -111,14 +109,17 @@ class Clone(object):
         self.dorsal_point = None
 
         self.peak = None
+        self.deyecenter_pedestalmax_pixels = None
         self.deyecenter_pedestalmax = None
         self.poly_coeff = None
         self.res = None
 
         # quality check flags
         self.automated_PF = "U"
+        self.automated_PF_reason = ''
         self.manual_PF = "U"
-
+        self.manual_PF_reason = ''
+        
         self.analyzed = False
 
     def convert_treatment(self):
@@ -1043,7 +1044,7 @@ class Clone(object):
 
         qx, qy = self.rotate(origin, s, np.pi - np.arctan(m1))
 
-        if qy[i] < qy[0]:
+        if qy[ipeak] < qy[0]:
             qx, qy = self.rotate(origin, s, 2*np.pi - np.arctan(m1))
         
         qx -= np.min(qx)
@@ -1051,12 +1052,15 @@ class Clone(object):
 
         X = np.transpose(np.vstack([np.concatenate([qx[:qlb], qx[qub:]]), np.concatenate([qy[:qlb], qy[qub:]])]))
 
-        self.poly_coeff, self.res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
+        self.poly_coeff, res, _, _, _ = np.polyfit(X[:,0], X[:,1], deg, full=True)
+        self.res = res[0]
         poly = np.poly1d(self.poly_coeff)
         
         yy = poly(qx)
         diff = qy - yy
         diff[np.where(diff<0)] = 0
+        
+        lb, ub = 0, 0
 
         for j in xrange(ipeak, len(diff)):
             if diff[j] == 0:
@@ -1066,11 +1070,18 @@ class Clone(object):
             if diff[j] == 0:
                 lb = j
                 break
-        
+          
         self.calc_pedestal_area(qx[lb:ub], diff[lb:ub])
-        self.pedestal_max_height_pixels = np.max(diff[lb:ub])
-        self.pedestal_max_height = self.pedestal_max_height/self.pixel_to_mm
         
+        try:
+            self.pedestal_max_height_pixels = np.max(diff[lb:ub])
+        except ValueError:
+            # if there is no section of pedestal that is higher than predictive model, set max height to 0
+            self.pedestal_max_height_pixels = 0.0
+
+        self.pedestal_max_height = self.pedestal_max_height_pixels/self.pixel_to_mm
+        self.get_deye_pedestalmax()
+
     def rotate(self, origin, points, phi):
 
         ox, oy = origin
@@ -1083,7 +1094,8 @@ class Clone(object):
 
     def get_deye_pedestalmax(self):
 
-        self.deyecenter_pedestalmax = self.dist((self.eye_x_center, self.eye_y_center), self.peak)
+        self.deyecenter_pedestalmax_pixels = self.dist((self.eye_x_center, self.eye_y_center), self.peak)
+        self.deyecenter_pedestalmax = self.deyecenter_pedestalmax_pixels/self.pixel_to_mm
 
     def flip(p, ip):
         

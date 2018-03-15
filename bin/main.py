@@ -11,9 +11,9 @@ INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 PONDSEASONFILEPATH = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/season_metadata.csv"
 ext = '.bmp'
 
-current = "analysis_results_current.txt"
-out = "analysis_results_update.txt"
-pedestal = "pedestal_update.txt"
+current = "analysis_results_20180313.txt"
+out = "analysis_results_current.txt"
+pedestal = "pedestal_current.txt"
 
 analysis = True
 build_clonedata = False
@@ -27,9 +27,9 @@ if analysis == True:
     #flags.append("doAnimalAreaCalc")
     #flags.append("getOrientationVectors")
     #flags.append("doLength")
-    flags.append("fitPedestal")
+    #flags.append("fitPedestal")
     flags.append("doPedestalScore")
-    flags.append("doQualityCheck")
+    #flags.append("doQualityCheck")
 
 print "Loading clone data\n"
 
@@ -94,12 +94,19 @@ cols = ["filebase",
         "posterior_mask_endpoints",
         "pedestal_max_height_pixels",
         "pedestal_area_pixels",
-	    "pedestal_max_height",
-	    "pedestal_area",
+	"pedestal_max_height",
+	"pedestal_area",
         "poly_coeff",
         "res"
+	"pedestal_max_height",
+	"pedestal_area",
+        "peak",
+        "deyecenter_pedestalmax_pixels",
+        "deyecenter_pedestalmax",
         "automated_PF",
-        "manual_PF"]
+        "automated_PF_reason",
+        "manual_PF",
+        "manual_PF_reason"]
 
 try:
     if os.stat(os.path.join(ANALYSISDIR, out)).st_size == 0:
@@ -115,6 +122,8 @@ try:
 except IOError:
     pedestal_data = {}
 
+utils.load_male_list(clones, os.path.join(ANALYSISDIR, "male_list.csv"))
+
 if analysis:
     for barcode in clones.keys():
         for dt in clones[barcode].keys():
@@ -128,7 +137,7 @@ if analysis:
                     else: clone.pedestal_analyzed = False
 
                     #print "Analyzing " + clone.filebase
-                    #utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
+                    utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
                     
                         
                     if "fitPedestal" in flags:

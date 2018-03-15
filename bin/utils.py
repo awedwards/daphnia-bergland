@@ -265,6 +265,18 @@ def update_attr(src, dest, attr):
 
     setattr(dest, attr, getattr(src, attr))
 
+def load_male_list(clones, csvpath):
+
+    df = pd.read_csv(csvpath, header=None)
+    males = df[0].values
+
+    for m in males:
+        m = str(m)
+        for dt in clones[m].keys():
+            clones[m][dt]["full"].manual_pf = "F" 
+            clones[m][dt]["full"].manual_pf_reason = "male"
+            
+
 def write_clone(clone, cols, path, outfile):
 
     try:        
@@ -331,6 +343,8 @@ def analyze_clone(clone, flags, pedestal_data=None):
                 try:
                     coords = pedestal_data[clone.filebase][0]
                     idx = pedestal_data[clone.filebase][1]
+                    clone.pedestal = coords
+                    clone.ipedestal = idx
                     clone.analyze_pedestal()
 
                 except KeyError:
