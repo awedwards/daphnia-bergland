@@ -273,8 +273,9 @@ def load_male_list(clones, csvpath):
     for m in males:
         m = str(m)
         for dt in clones[m].keys():
-            clones[m][dt]["full"].manual_pf = "F" 
-            clones[m][dt]["full"].manual_pf_reason = "male"
+            print "Clone " + clones[m][dt]["full"].filebase + " is a male."
+            clones[m][dt]["full"].manual_PF = "F" 
+            clones[m][dt]["full"].manual_PF_reason = "male"
             
 
 def write_clone(clone, cols, path, outfile):
@@ -295,8 +296,8 @@ def write_clone(clone, cols, path, outfile):
         
             f.write( "\t".join(tmpdata) + "\n")
 
-    except (IOError, AttributeError):
-        print "Can't write clone data to file"
+    except (IOError, AttributeError) as e:
+        print "Can't write clone data to file: " + str(e)
 
 def analyze_clone(clone, flags, pedestal_data=None):
 

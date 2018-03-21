@@ -868,18 +868,20 @@ class Clone(object):
         snakex = ps[:,0]
         snakey = ps[:,1]
 
-        d = []
-        idx = []
+        d = [tuple(bs[0,:])]
+        idx = [0]
         
         n = len(snakex)
-        for i in xrange(n):
+        
+        for i in xrange(1,n):
 
             p2 = snakex[i], snakey[i]
             p1 = bs[i,0], bs[i,1]
             
             if len(d) > 0:
-                lp == d[-1]
-
+                lp = d[-1]
+            else:
+                lp = None
             e = self.find_edge2(edges, p2, p1, lp=lp)
             
             if e is not None:
@@ -887,7 +889,7 @@ class Clone(object):
                 idx.append(i) 
         
         self.pedestal, self.ipedestal = d, idx
-
+    
     def get_pedestal_max_height(self, data):
         
         self.pedestal_max_height = np.max(data[:,1])
@@ -938,7 +940,7 @@ class Clone(object):
 
         for i in xrange(len(zi)):
             if zi[i] > t1:
-                if lp == None: return(yy[i], xx[i])
+                if lp is None: return(yy[i], xx[i])
                 elif self.dist((yy[i], xx[i]), lp) < t2:
                     return (yy[i], xx[i])
                 else:
@@ -1122,7 +1124,6 @@ class Clone(object):
         p = self.pedestal
         p = np.array([list(x) for x in p])
         idx = np.array(self.ipedestal)
-        p, idx = self.flip(p, idx)
         new_idx = [0]
         new_p = [p[0,:]]
 
