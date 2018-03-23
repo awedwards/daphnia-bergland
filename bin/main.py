@@ -11,8 +11,8 @@ INDUCTIONMETADATADIR = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/induction"
 PONDSEASONFILEPATH = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/season_metadata.csv"
 ext = '.bmp'
 
-current = "analysis_results_20180313.txt"
-out = "analysis_results_current.txt"
+current = "analysis_results_current.txt"
+out = "trash.txt"
 pedestal = "pedestal_current.txt"
 
 analysis = True
@@ -27,8 +27,8 @@ if analysis == True:
     #flags.append("doAnimalAreaCalc")
     #flags.append("getOrientationVectors")
     #flags.append("doLength")
-    #flags.append("fitPedestal")
-    flags.append("doPedestalScore")
+    flags.append("fitPedestal")
+    #flags.append("doPedestalScore")
     #flags.append("doQualityCheck")
 
 print "Loading clone data\n"
@@ -80,10 +80,10 @@ cols = ["filebase",
         "posterior",
         "dorsal",
         "ventral",
-	    "ant_vec",
-	    "pos_vec",
-	    "dor_vec",
-	    "ven_vec",
+	"ant_vec",
+        "pos_vec",
+	"dor_vec",
+	"ven_vec",
         "eye_dorsal",
         "head",
         "tail",
@@ -97,7 +97,7 @@ cols = ["filebase",
 	"pedestal_max_height",
 	"pedestal_area",
         "poly_coeff",
-        "res"
+        "res",
 	"pedestal_max_height",
 	"pedestal_area",
         "peak",
@@ -131,13 +131,13 @@ if analysis:
             clone = clones[barcode][dt]["full"]
             
             if not clone.analyzed:
-                if clone.filebase not in ["100324_AD8_30_juju4_1C_RigB_20170603T115354.bmp", "110558_D8_256_ctrl_2B_RigB_20170921T142058.bmp"]:
+                #if clone.filebase not in ["100324_AD8_30_juju4_1C_RigB_20170603T115354.bmp", "110558_D8_256_ctrl_2B_RigB_20170921T142058.bmp"]:
                     
                     if clone.filebase in pedestal_data.keys(): clone.pedestal_analyzed = True
                     else: clone.pedestal_analyzed = False
 
                     #print "Analyzing " + clone.filebase
-                    utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
+                    #utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
                     
                         
                     if "fitPedestal" in flags:
@@ -150,7 +150,8 @@ if analysis:
                                 pedestal_data[clone.filebase] = [clone.pedestal, clone.ipedestal]
 
                                 utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
-                                utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
+                                
+                                #utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
 
                             except Exception as e:
                                 print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)

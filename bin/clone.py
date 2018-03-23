@@ -448,8 +448,11 @@ class Clone(object):
 
         self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
 
-    def count_animal_pixels(self, im, sigma=1, canny_thresholds=[0,50]):
+    def count_animal_pixels(self, im, sigma=1.0):
         
+        hc = self.high_contrast(im)
+        edges = cv2.Canny(np.array(255*gaussian(hc, sigma), dtype=np.uint8), 0, 50)/255
+
         cx, cy = self.animal_x_center, self.animal_y_center
 
         hx1, hy1 = self.ventral_mask_endpoints[0]
@@ -469,65 +472,33 @@ class Clone(object):
 
         pts = []
 
-        grad_x, grad_y = np.gradient(gaussian(im, sigma=sigma))
-
         for i in xrange(len(s)):
             
-            dot = grad_x*(cx - x[i]) + grad_y*(cy - y[i])
 
-            p1 = (y[i], x[i])
-            p2 = (cy, cx)
+            p1 = (x[i], y[i])
+            p2 = (cx, cy)
 
-            if self.intersect((p1[1], p1[0], cx, cy), (hx1, hy1, vx, vy)):
-                res = self.intersection((p1[1], p1[0], cx, cy), ((hx1, hy1, vx, vy)))
-                p1 = (res[1], res[0])
+            if self.intersect((p1[0], p1[1], cx, cy), (hx1, hy1, vx, vy)):
+                res = self.intersection((p1[0], p1[1], cx, cy), ((hx1, hy1, vx, vy)))
+                p1 = (res[0], res[1])
 
-            if self.intersect((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy) ):
-                res = self.intersection((p1[1], p1[0], cx, cy), (hx2, hy2, dx, dy))
-                p1 = (res[1], res[0])
+            if self.intersect((p1[0], p1[1], cx, cy), (hx2, hy2, dx, dy) ):
+                res = self.intersection((p1[0], p[1], cx, cy), (hx2, hy2, dx, dy))
+                p1 = (res[0], res[1])
 
             if self.intersect((p1[1], p1[0], cx, cy), (topx1, topy1, topx2, topy2) ):
-                res = self.intersection((p1[1], p1[0], cx, cy), (topx1, topy1, topx2, topy2))
-                p1 = (res[1], res[0])
+                res = self.intersection((p1[0], p1[1], cx, cy), (topx1, topy1, topx2, topy2))
+                p1 = (res[0], res[1])
 
-            edge_pt = self.find_edge(dot, p1, p2)
+            edge_pt = self.find_edge(edges, p1, p2)
 
             if edge_pt is not None:
                 pts.append((edge_pt[1], edge_pt[0]))
 
+        self.whole_animal_points = pts
         pts = np.array(pts)
-        cc = [[]]
-        idx = 0
-        connected = False
 
-        for i in xrange(1, pts.shape[0] - 1):
-
-            if (self.dist(pts[i, :], pts[i-1,:]) < 15) or (self.dist(pts[i+1, :], pts[i,:]) < 15):
-
-                try:
-                    cc[idx].append(pts[i,:])
-                    connected = True
-
-                except IndexError:
-                    cc.append([])
-                    cc[idx].append(pts[i,:])
-                    connected = True
-            else:
-                try:
-                    if len(cc[idx]) < 4:
-                        cc.pop(idx)
-                        idx -= 1
-                except IndexError:
-                    pass
-
-                else:
-                    if connected:
-                        idx += 1
-                        connected = False
-
-        self.whole_animal_points = cc
-        cc = np.vstack(cc)
-        self.total_animal_pixels = self.area(cc[:,1], cc[:,0])
+        self.total_animal_pixels = self.area(pts[:,1], pts[:,0])
 
     def get_animal_area(self):
 
@@ -735,37 +706,9 @@ class Clone(object):
 
             self.head = hx, hy
 
-    def find_dorsal(self, im):
-
-        dot = self.gradient(im, "dorsal")
-
-        p1 = ((self.head[0] + self.tail[0])/2, (self.head[1] + self.tail[1])/2)
-        m = -1/((self.head[1] - self.tail[1])/(self.head[0] - self.tail[0]))
-        b = p1[1] - m*p1[0]
-        p2 = (self.dorsal[1]-b)/m, self.dorsal[1]
-        self.dorsal_point = self.find_edge(dot, p2, p1)
-
     def find_tail(self):
         
-        # get ventral/posterior-most connected components from the whole animal fitting,
-        # then get the point in that set closest to the tail tip
-        
-        self.get_orientation_vectors()
-        ven_pos_vec = np.array(self.pos_vec) + np.array(self.ven_vec)
-        cx, cy = self.animal_x_center, self.animal_y_center
-
-        mean_dist = []
-
-        for c in self.whole_animal_points:
-
-            m = np.mean( c, axis = 0 )
-            mean_dist.append( self.dist( m, ( cx - ven_pos_vec[0], cy - ven_pos_vec[1]) ) )
-
-        ven_pos_points = np.vstack( self.whole_animal_points[np.argmin( mean_dist )] )
-        
-        idx = np.argmin(np.linalg.norm(ven_pos_points - np.array((self.tail_tip[0], self.tail_tip[1])), axis=1))
-        
-        self.tail = (ven_pos_points[idx, 0], ven_pos_points[idx, 1])
+        self.tail = 0.75*self.tail_tip[0] + 0.25*self.eye_x_center, 0.75*self.tail_tip[1] + 0.25*self.eye_y_center
 
     def gradient_mask(self, im, part, threshold=0.3):
 
@@ -820,12 +763,12 @@ class Clone(object):
         d = self.dist((ex, ey), (self.dorsal_mask_endpoints[0][0], self.dorsal_mask_endpoints[0][1]))
         
         x, y = self.orth((ex, ey), d, m, flag="dorsal")
-        p1 = self.find_edge2(edges, (x, y), (ex, ey))
+        p1 = self.find_edge(edges, (x, y), (ex, ey))
 
         mp = 0.67*ex + 0.33*tx, 0.67*ey + 0.33*ty
 
         x, y = self.orth(mp, d, m, flag="dorsal")
-        p2 = self.find_edge2(edges, (x, y), mp)
+        p2 = self.find_edge(edges, (x, y), mp)
 
         m2 = (p1[1] - p2[1])/(p1[0] - p2[0])
         xx1, yy1 = self.orth(p1, d*0.25, m2)
@@ -868,8 +811,8 @@ class Clone(object):
         snakex = ps[:,0]
         snakey = ps[:,1]
 
-        d = [tuple(bs[0,:])]
-        idx = [0]
+        d = []
+        idx = []
         
         n = len(snakex)
         
@@ -882,7 +825,7 @@ class Clone(object):
                 lp = d[-1]
             else:
                 lp = None
-            e = self.find_edge2(edges, p2, p1, lp=lp)
+            e = self.find_edge(edges, p2, p1, lp=lp)
             
             if e is not None:
                 d.append(e)
@@ -904,35 +847,7 @@ class Clone(object):
         hyp = self.dist((n,0), (x, np.max(data[:,1])))
         self.pedestal_theta = np.arcsin((n - x)/hyp)*(180/np.pi)
 
-    def find_edge(self, im, p1, p2, npoints=400, ma=4, bound=0.2, w_threshold=50):
-
-        # x and y in p1 and p2 are ordered in image convention, but map_coordinates is in ordinal
-        xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
-
-        zi = scipy.ndimage.map_coordinates(im, np.vstack((xx, yy)), mode='nearest')
-        zi -= np.mean(zi)
-        
-        zi = pd.rolling_mean(zi, ma)
-
-        lb = np.nanmean(zi) - bound*(np.nanmean(zi) - np.nanmin(zi))
-        ub = np.nanmean(zi) + bound*(np.nanmax(zi) - np.nanmean(zi))
-        
-        mins = []
-        maxes = []
-
-        for i in xrange(ma, len(zi)-1):
-            if (zi[i] - zi[i-1] < 0) and (zi[i+1] - zi[i] > 0) and (zi[i] < lb):
-                mins.append(i)
-            elif (zi[i] - zi[i-1] > 0) and (zi[i+1] - zi[i] < 0) and (zi[i] > ub):
-                maxes.append(i)
-	
-        for j in mins:
-            for k in maxes:
-                if np.abs(j - k) < w_threshold:
-                    return (yy[j], xx[j])          # intentionally return first trough
-        return
-
-    def find_edge2(self, im, p1, p2, t1=0.1, npoints=400, lp=None, t2=2):
+    def find_edge(self, im, p1, p2, t1=0.1, npoints=400, lp=None, t2=2):
 
         xx, yy = np.linspace(p1[1], p2[1], npoints), np.linspace(p1[0], p2[0], npoints)
         zi = scipy.ndimage.map_coordinates(im, np.vstack((yy, xx)), mode="nearest")
