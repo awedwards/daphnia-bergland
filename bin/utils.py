@@ -276,7 +276,36 @@ def load_male_list(clones, csvpath):
             print "Clone " + clones[m][dt]["full"].filebase + " is a male."
             clones[m][dt]["full"].manual_PF = "F" 
             clones[m][dt]["full"].manual_PF_reason = "male"
+
+def load_manual_curation(clones, csvpath):
+
+    df = pd.read_csv(csvpath)
+    
+    curation_data = {}
+
+    for i, row in df.iterrows():
+
+        curation_data[row['filebase'][5:] + ".bmp"] = row
+
+    for bc in clones.keys():
+        for dt in clones[bc].keys():
             
+            clone = clones[bc][dt]["full"]
+            
+            if not (clone.manual_PF == 'F'):
+                
+                try:
+                    row = curation_data[clone.filebase]
+
+                    clone.manual_PF = row['manual_PF'].upper()
+                    clone.manual_PF_reason = row['manual_PF_reason']
+                    clone.manual_PF_curator = row['manual_PF_curator'].lower()
+
+                except KeyError:
+
+                    clone.manual_PF = "P"
+                    clone.manual_PF_curator = "awe"
+
 
 def write_clone(clone, cols, path, outfile):
 

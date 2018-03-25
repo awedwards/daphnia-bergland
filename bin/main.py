@@ -12,7 +12,7 @@ PONDSEASONFILEPATH = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/season_metadat
 ext = '.bmp'
 
 current = "analysis_results_current.txt"
-out = "trash.txt"
+out = "test.txt"
 pedestal = "pedestal_current.txt"
 
 analysis = True
@@ -20,14 +20,14 @@ build_clonedata = False
 
 flags = []
 
-if analysis == True:
+#if analysis == True:
     #flags.append("getPxtomm")
     #flags.append("doEyeAreaCalc")
     #flags.append("doAntennaMasking")
     #flags.append("doAnimalAreaCalc")
     #flags.append("getOrientationVectors")
     #flags.append("doLength")
-    flags.append("fitPedestal")
+    #flags.append("fitPedestal")
     #flags.append("doPedestalScore")
     #flags.append("doQualityCheck")
 
@@ -80,10 +80,10 @@ cols = ["filebase",
         "posterior",
         "dorsal",
         "ventral",
-	"ant_vec",
+	    "ant_vec",
         "pos_vec",
-	"dor_vec",
-	"ven_vec",
+	    "dor_vec",
+	    "ven_vec",
         "eye_dorsal",
         "head",
         "tail",
@@ -94,19 +94,20 @@ cols = ["filebase",
         "posterior_mask_endpoints",
         "pedestal_max_height_pixels",
         "pedestal_area_pixels",
-	"pedestal_max_height",
-	"pedestal_area",
+	    "pedestal_max_height",
+	    "pedestal_area",
         "poly_coeff",
         "res",
-	"pedestal_max_height",
-	"pedestal_area",
+	    "pedestal_max_height",
+	    "pedestal_area",
         "peak",
         "deyecenter_pedestalmax_pixels",
         "deyecenter_pedestalmax",
         "automated_PF",
         "automated_PF_reason",
         "manual_PF",
-        "manual_PF_reason"]
+        "manual_PF_reason"
+        "manual_PF_curator"]
 
 try:
     if os.stat(os.path.join(ANALYSISDIR, out)).st_size == 0:
@@ -123,6 +124,7 @@ except IOError:
     pedestal_data = {}
 
 utils.load_male_list(clones, os.path.join(ANALYSISDIR, "male_list.csv"))
+utils.load_manual_curation(clones, os.path.join(ANALYSISDIR, "manual_curation.csv"))
 
 if analysis:
     for barcode in clones.keys():
@@ -131,31 +133,30 @@ if analysis:
             clone = clones[barcode][dt]["full"]
             
             if not clone.analyzed:
-                #if clone.filebase not in ["100324_AD8_30_juju4_1C_RigB_20170603T115354.bmp", "110558_D8_256_ctrl_2B_RigB_20170921T142058.bmp"]:
+                
+                if clone.filebase in pedestal_data.keys(): clone.pedestal_analyzed = True
+                else: clone.pedestal_analyzed = False
+
+                #print "Analyzing " + clone.filebase
+                #utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
+                
                     
-                    if clone.filebase in pedestal_data.keys(): clone.pedestal_analyzed = True
-                    else: clone.pedestal_analyzed = False
+                if "fitPedestal" in flags:
+                    if not clone.pedestal_analyzed:
+                        try:
+                            im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
+                            clone.initialize_pedestal(im)
+                            print "Fitting pedestal for " + clone.filebase
+                            clone.fit_pedestal(im)
+                            pedestal_data[clone.filebase] = [clone.pedestal, clone.ipedestal]
 
-                    #print "Analyzing " + clone.filebase
-                    #utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
-                    
-                        
-                    if "fitPedestal" in flags:
-                        if not clone.pedestal_analyzed:
-                            try:
-                                im = cv2.imread(os.path.join(DATADIR, clone.filepath), cv2.IMREAD_GRAYSCALE)
-                                clone.initialize_pedestal(im)
-                                print "Fitting pedestal for " + clone.filebase
-                                clone.fit_pedestal(im)
-                                pedestal_data[clone.filebase] = [clone.pedestal, clone.ipedestal]
+                            utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
+                            
+                            #utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
 
-                                utils.append_pedestal_line(clone.filebase, pedestal_data[clone.filebase], os.path.join(ANALYSISDIR, pedestal))
-                                
-                                #utils.analyze_clone(clone, ["doPedestalScore"], pedestal_data=pedestal_data)
+                        except Exception as e:
+                            print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
 
-                            except Exception as e:
-                                print "Failed to fit pedestal for " + clone.filebase + " because of " + str(e)
-
-                            #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
-                    
-                    utils.write_clone(clone, cols, ANALYSISDIR, out)
+                        #utils.save_clonelist(clones, ANALYSISDIR, "analysis_results_test.txt", cols)
+                
+                utils.write_clone(clone, cols, ANALYSISDIR, out)
