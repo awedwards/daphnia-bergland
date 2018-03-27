@@ -479,14 +479,14 @@ class Clone(object):
             p2 = (cx, cy)
 
             if self.intersect((p1[0], p1[1], cx, cy), (hx1, hy1, vx, vy)):
-                res = self.intersection((p1[0], p1[1], cx, cy), ((hx1, hy1, vx, vy)))
+                res = self.intersection((p1[0], p1[1], cx, cy), (hx1, hy1, vx, vy))
                 p1 = (res[0], res[1])
 
             if self.intersect((p1[0], p1[1], cx, cy), (hx2, hy2, dx, dy) ):
-                res = self.intersection((p1[0], p[1], cx, cy), (hx2, hy2, dx, dy))
+                res = self.intersection((p1[0], p1[1], cx, cy), (hx2, hy2, dx, dy))
                 p1 = (res[0], res[1])
 
-            if self.intersect((p1[1], p1[0], cx, cy), (topx1, topy1, topx2, topy2) ):
+            if self.intersect((p1[0], p1[1], cx, cy), (topx1, topy1, topx2, topy2) ):
                 res = self.intersection((p1[0], p1[1], cx, cy), (topx1, topy1, topx2, topy2))
                 p1 = (res[0], res[1])
 
