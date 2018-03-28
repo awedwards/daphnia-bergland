@@ -119,7 +119,8 @@ class Clone(object):
         self.automated_PF_reason = ''
         self.manual_PF = "U"
         self.manual_PF_reason = ''
-        
+        self.manual_PF_curator = ''
+
         self.analyzed = False
 
     def convert_treatment(self):
@@ -653,62 +654,72 @@ class Clone(object):
          
         setattr(self, "eye_" + vec, tuple(eye[np.argmin(np.linalg.norm(eye -  np.array((x, y)))), :]) )
     
-    def find_head(self, im):
+    def find_head(self, im, sigma=1.0):
 
-        if self.tail is None:
-            self.find_tail()
+        hc = self.high_contrast(im)
+        edges = cv2.Canny(np.array(255*gaussian(hc, sigma=1), dtype=np.uint8), 0, 50)/255
+
+        ep = self.eye_pts
+        ex, ey = self.eye_x_center, self.eye_y_center
+        dx, dy = self.dor_vec
+        target_x, target_y = ex - dx, ey - dy
+
+        self.eye_dorsal = ep[np.argmin(np.linalg.norm(ep - (target_x, target_y), axis=1), :]
+        edx, edy = self.eye_dorsal
+
+        tx, ty = self.tail
+        m = (ty - edy)/(tx - edx)
+        b = edy - m*edx
+
+        d = self.dist((edx, edy), (tx, ty))
+        cx = edx - (-0.15*d*(edx - tx))/d
+        cy = edy - (-0.15*d*(edy - ty))/d
+
+        (topx1, topy1), (topx2, topy2) = self.anterior_mask_endpoints
+
+        if self.intersect((edx, edy, cx, cy), (topx1, topy1, topx2, topy2)):
+            res = self.intersection((edx, edy, cx, cy), (topx1, topy1, topx2, topy2))
+            p1 = res[0], res[1]
+            p2 = edx, edy
+        else:
+            p1 = cx, cy
+            p2 = edx, edy
+
+        hx, hy = self.find_edge(edges, p1, p2)
+        self.head = hx, hy
         
-        if self.eye_dorsal is None:
-            self.get_eye_vector(im, "dorsal")
+    def find_tail(self, im, sigma=1.0, n=100):
+        
+        hc = self.high_contrast(im)
+        edges = cv2.Canny(np.array(255*gaussian(hc, sigma), dtype=np.uint8), 0, 50)/255
 
-        if (self.tail is not None) and (self.eye_dorsal is not None):
+        tx, ty = self.tail_tip
+        ex, ey = 0.5*tx + 0.5*self.eye_x_center, 0.5*ty + 0.5*self.eye_y_center
+        
+        m = (ty - ey)/(tx - ex)
+        
+        x, y = np.linspace(ex, ex, n), np.linspace(ty, ey, n)
 
-            x1 = self.eye_dorsal[0]
-            y1 = self.eye_dorsal[1]
-           
-            idx_x, idx_y = self.gradient_mask(im, "head",0.35)
-            
-            mask = im.copy()
-            mask[idx_x, idx_y] = 0
+        d = self.dist((tx, ty), (ex, ey))/8
 
-            x1 = self.eye_dorsal[0]
-            y1 = self.eye_dorsal[1]
+        for i in xrange(n):
+            p1, p2 = self.orth((x[i], y[i]), d, m, "both")
 
-            m = (self.tail[1] - y1)/(self.tail[0] - x1)
-            b = y1 - x1*m
-
-            x2 = 1.25*self.anterior[0] - 0.25*self.animal_x_center
-            y2 = m*x1 + b
-
-            npoints = max(np.abs(y2 - y1), np.abs(x2 - x1))*2
-            x,y = np.linspace(x1,x2,npoints), np.linspace(y1,y2,npoints)
-
-            z = scipy.ndimage.map_coordinates(mask, np.vstack((x,y)), mode='nearest')
-            df = pd.DataFrame(z)
-
-            hx = []
-            hy = []
-
-            found = False
-
-            for i in df.iterrows():
-                if i[1][0] == 0:
-                    hx.append(x[i[0]])
-                    hy.append(y[i[0]])
-
-                    found = True
-
-            if not found:
-                hx, hy = x1, y1
+            if self.dist(self.ventral, p1) < self.dist(self.ventral, p2):
+                start = p1
+                end = p2
             else:
-                hx = np.mean(hx)
-                hy = np.mean(hy)
+                start = p2
+                end = p1
 
-            self.head = hx, hy
+            edgex, edgey = clone.find_edge(edges, start, end)
 
-    def find_tail(self):
-        
-        self.tail = 0.75*self.tail_tip[0] + 0.25*self.eye_x_center, 0.75*self.tail_tip[1] + 0.25*self.eye_y_center
+            if self.dist((edgex, edgey), start) < self.dist(p1, p2)/45:
+                self.tail = (edgex, edgey)
+                break
+
+        if self.tail == None:
+            self.tail = self.tail_tip
 
     def gradient_mask(self, im, part, threshold=0.3):
 
@@ -792,6 +803,9 @@ class Clone(object):
 
         x2 = p[0] - np.sqrt((d**2)/(1 + 1/(m**2)))
         y2 = p[1] - (1/m)*(x2 - p[0])
+        
+        if flag == "both":
+            return (x1, y1), (x2, y2)
 
         if self.dist((x1, y1), (cx, cy)) < self.dist((x2, y2), (cx, cy)):
             return x2, y2
@@ -815,7 +829,7 @@ class Clone(object):
         idx = []
         
         n = len(snakex)
-        t2 = 1000/clone.dist(bs[0,:], bs[-1,:])
+        t2 = clone.dist(bs[0,:], bs[-1,:])/60
 
         for i in xrange(1,n):
 
