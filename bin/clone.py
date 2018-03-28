@@ -664,7 +664,7 @@ class Clone(object):
         dx, dy = self.dor_vec
         target_x, target_y = ex - dx, ey - dy
 
-        self.eye_dorsal = ep[np.argmin(np.linalg.norm(ep - (target_x, target_y), axis=1), :]
+        self.eye_dorsal = ep[np.argmin(np.linalg.norm(ep - (target_x, target_y), axis=1)), :]
         edx, edy = self.eye_dorsal
 
         tx, ty = self.tail
