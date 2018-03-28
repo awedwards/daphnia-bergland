@@ -629,31 +629,7 @@ class Clone(object):
         self.dor_vec = [self.animal_x_center - self.dorsal[0], self.animal_y_center - self.dorsal[1]]
         self.ven_vec = [self.animal_x_center - self.ventral[0], self.animal_y_center - self.ventral[1]]
         self.ant_vec = [self.animal_x_center - self.anterior[0], self.animal_y_center - self.anterior[1]]
-    
-    def get_eye_vector(self, vec):
-
-        # finds dorsal point of the eye
-        
-        if vec not in ["dorsal", "ventral", "anterior", "posterior"]:
-            raise( "Direction not found")
-
-        eye = self.eye_pts
-
-        body_vector = getattr(self, vec)
-
-        if body_vector == None:
-            self.get_anatomical_directions()
-
-        d_x = body_vector[0] - self.animal_x_center
-        d_y = body_vector[1] - self.animal_y_center
-        
-        # draw line from eye center with same slope as body vector
-
-        x = self.eye_x_center + d_x 
-        y = self.eye_y_center + d_y
-         
-        setattr(self, "eye_" + vec, tuple(eye[np.argmin(np.linalg.norm(eye -  np.array((x, y)))), :]) )
-    
+       
     def find_head(self, im, sigma=1.0):
 
         hc = self.high_contrast(im)
@@ -698,7 +674,7 @@ class Clone(object):
         
         m = (ty - ey)/(tx - ex)
         
-        x, y = np.linspace(ex, ex, n), np.linspace(ty, ey, n)
+        x, y = np.linspace(tx, ex, n), np.linspace(ty, ey, n)
 
         d = self.dist((tx, ty), (ex, ey))/8
 
@@ -720,45 +696,6 @@ class Clone(object):
 
         if self.tail == None:
             self.tail = self.tail_tip
-
-    def gradient_mask(self, im, part, threshold=0.3):
-
-        if len(im.shape) == 3:
-            im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-
-        if part == "tail":
-            x, y = self.posterior
-        elif part == "head":
-            x, y = self.anterior
-
-        w, h = im.shape
-
-        t = 100
-        bb = np.zeros((4,2))
-        bb[0, :] = [np.max([x-t, 0]), np.max([y-t, 0])]
-        bb[1, :] = [np.min([x+t, w]), np.max([y-t, 0])]
-        bb[2, :] = [np.max([x-t, 0]), np.min([y+t, h])]
-        bb[3, :] = [np.min([x+t, w]), np.min([y+t, h])]
-
-        cropped = im[int(bb[0,0]):int(bb[3,0]), int(bb[0,1]):int(bb[3,1])]
-
-        clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (8,8))
-        hc = clahe.apply(cropped)
-
-        blur = gaussian(hc, 1.5)
-        dx, dy = np.gradient(blur)
-        
-        if part == "tail":
-            post_dot = self.pos_vec[0]*dx + self.pos_vec[1]*dy
-            idx_x, idx_y = np.where(self.norm(post_dot) < threshold)
-        if part == "head":
-            ant_dot = self.ant_vec[0]*dx + self.ant_vec[1]*dy
-            idx_x, idx_y = np.where(self.norm(ant_dot) < threshold)
-
-        idx_x += int(bb[0,0])
-        idx_y += int(bb[0,1])
-
-        return idx_x, idx_y
 
     def initialize_pedestal(self, im):
         
