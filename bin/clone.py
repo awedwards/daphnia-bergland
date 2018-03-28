@@ -815,7 +815,8 @@ class Clone(object):
         idx = []
         
         n = len(snakex)
-        
+        t2 = 1000/clone.dist(bs[0,:], bs[-1,:])
+
         for i in xrange(1,n):
 
             p2 = snakex[i], snakey[i]
@@ -825,7 +826,7 @@ class Clone(object):
                 lp = d[-1]
             else:
                 lp = None
-            e = self.find_edge(edges, p2, p1, lp=lp)
+            e = self.find_edge(edges, p2, p1, lp=lp, t2=t2)
             
             if e is not None:
                 d.append(e)
