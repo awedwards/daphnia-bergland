@@ -660,10 +660,16 @@ class Clone(object):
         else:
             p1 = cx, cy
             p2 = edx, edy
-
-        hx, hy = self.find_edge(edges, p1, p2)
-        self.head = hx, hy
         
+        try:
+            hx, hy = self.find_edge(edges, p1, p2)
+            self.head = hx, hy
+        except TypeError:
+            
+            # if head edge can't be found, just estimate based on dorsal eye point
+
+            self.head = edx - (-0.05*d*(edx - tx))/d, edy - (-0.05*d*(edy - ty))/d
+
     def find_tail(self, im, sigma=1.0, n=100):
         
         hc = self.high_contrast(im)
@@ -687,12 +693,14 @@ class Clone(object):
             else:
                 start = p2
                 end = p1
+            try:
+                edgex, edgey = self.find_edge(edges, start, end)
 
-            edgex, edgey = clone.find_edge(edges, start, end)
-
-            if self.dist((edgex, edgey), start) < self.dist(p1, p2)/45:
-                self.tail = (edgex, edgey)
-                break
+                if self.dist((edgex, edgey), start) < self.dist(p1, p2)/45:
+                    self.tail = (edgex, edgey)
+                    break
+            except TypeError:
+                pass
 
         if self.tail == None:
             self.tail = self.tail_tip
@@ -766,7 +774,7 @@ class Clone(object):
         idx = []
         
         n = len(snakex)
-        t2 = clone.dist(bs[0,:], bs[-1,:])/60
+        t2 = self.dist(bs[0,:], bs[-1,:])/60
 
         for i in xrange(1,n):
 
