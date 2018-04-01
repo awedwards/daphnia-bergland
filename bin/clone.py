@@ -670,8 +670,8 @@ class Clone(object):
 
             self.head = edx - (-0.05*d*(edx - tx))/d, edy - (-0.05*d*(edy - ty))/d
 
-    def find_tail(self, im, sigma=1.0, n=100):
-        
+    def find_tail(self, im, sigma=1.5, n=100):
+         
         hc = self.high_contrast(im)
         edges = cv2.Canny(np.array(255*gaussian(hc, sigma), dtype=np.uint8), 0, 50)/255
 
