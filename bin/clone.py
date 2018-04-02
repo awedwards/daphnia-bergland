@@ -1003,7 +1003,7 @@ class Clone(object):
         new_p = [p[0,:]]
 
         start = idx[0]
-        for i in xrange(start+1):
+        for i in xrange(1, start+1):
             new_idx.append(i)
             new_p.append(p[0,:])
 
