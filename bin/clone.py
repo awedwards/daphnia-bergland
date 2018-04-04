@@ -507,7 +507,7 @@ class Clone(object):
 
     def get_animal_length(self):
 
-        self.animal_length_pixels = self.dist(self.eye_dorsal, self.tail)
+        self.animal_length_pixels = self.dist(self.head, self.tail)
         self.animal_length = self.animal_length_pixels/self.pixel_to_mm
 
     def mask_antenna(self, im, sigma=1.5, canny_thresholds=[0,50], cc_threhsold=125, a = 0.7, b=20, c=2):
