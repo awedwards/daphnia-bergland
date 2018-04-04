@@ -499,7 +499,7 @@ class Clone(object):
         self.whole_animal_points = pts
         pts = np.array(pts)
 
-        self.total_animal_pixels = self.area(pts[:,1], pts[:,0])
+        self.total_animal_pixels = self.area(pts[:,0], pts[:,1])
 
     def get_animal_area(self):
 
