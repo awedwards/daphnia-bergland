@@ -43,7 +43,7 @@ def procrustes(p, angle, ma_window=12):
     # Rotation by provided angle
     px, py = rotate( (0, 0), p, angle)
 
-    return np.vstack((px, py))
+    return np.transpose(np.vstack((px, py)))
 
 def mean_shape(shapes):
     """
@@ -52,7 +52,7 @@ def mean_shape(shapes):
     Expecting an n-by-2*k array for n points and k sets of points
     """
 
-    x_coords = np.vstack([shapes[0::2])
-    y_coords = np.vstack([shapes[1::2])
+    x_coords = np.vstack(shapes[:, 0::2])
+    y_coords = np.vstack(shapes[:, 1::2])
 
-    return np.vstack( (np.mean(x_coords, axis=0), np.mean(y_coords, axis=0)) )
+    return np.vstack( (np.mean(x_coords, axis=1), np.mean(y_coords, axis=1)) )
