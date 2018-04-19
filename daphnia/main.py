@@ -12,7 +12,7 @@ PONDSEASONFILEPATH = "/mnt/spicy_4/daphnia/analysis/MetadataFiles/season_metadat
 ext = '.bmp'
 
 current = "analysis_results_current.txt"
-out = "test.txt"
+out = "tail_spine.txt"
 pedestal = "pedestal_current.txt"
 
 analysis = True
@@ -20,13 +20,13 @@ build_clonedata = False
 
 flags = []
 
-#if analysis == True:
+if analysis == True:
     #flags.append("getPxtomm")
     #flags.append("doEyeAreaCalc")
     #flags.append("doAntennaMasking")
     #flags.append("doAnimalAreaCalc")
     #flags.append("getOrientationVectors")
-    #flags.append("doLength")
+    flags.append("doLength")
     #flags.append("fitPedestal")
     #flags.append("doPedestalScore")
     #flags.append("doQualityCheck")
@@ -88,6 +88,8 @@ cols = ["filebase",
         "head",
         "tail",
         "tail_tip",
+        "tail_spine_length_pixels",
+        "tail_spine_length",
         "ventral_mask_endpoints",
         "dorsal_mask_endpoints",
         "anterior_mask_endpoints",
@@ -106,7 +108,7 @@ cols = ["filebase",
         "automated_PF",
         "automated_PF_reason",
         "manual_PF",
-        "manual_PF_reason"
+        "manual_PF_reason",
         "manual_PF_curator"]
 
 try:
@@ -137,8 +139,8 @@ if analysis:
                 if clone.filebase in pedestal_data.keys(): clone.pedestal_analyzed = True
                 else: clone.pedestal_analyzed = False
 
-                #print "Analyzing " + clone.filebase
-                #utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
+                print "Analyzing " + clone.filebase
+                utils.analyze_clone(clone, flags, pedestal_data=pedestal_data)
                 
                     
                 if "fitPedestal" in flags:

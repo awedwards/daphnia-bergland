@@ -107,7 +107,8 @@ class Clone(object):
         self.tail = None
         self.tail_tip = None
         self.dorsal_point = None
-
+        self.tail_spine_length_pixels = None
+        self.tail_spine_length = None
         self.peak = None
         self.deyecenter_pedestalmax_pixels = None
         self.deyecenter_pedestalmax = None
@@ -445,6 +446,11 @@ class Clone(object):
         except (TypeError, IndexError):
             self.find_eye(im, sigma=sigma+0.25)
     
+    def get_tail_spine_length(self):
+
+        self.tail_spine_length_pixels = self.dist(self.tail_tip, self.tail)
+        self.tail_spine_length = self.tail_spine_length_pixels/self.pixel_to_mm
+
     def get_eye_area(self):
 
         self.eye_area = self.total_eye_pixels/np.power(self.pixel_to_mm, 2)
