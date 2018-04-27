@@ -504,7 +504,32 @@ class Clone(object):
 
         self.whole_animal_points = pts
         pts = np.array(pts)
+        
+        cc = [[]]
+        idx = 0
+        connected = False
 
+        for i in xrange(1, pts.shape[0]-1):
+            if (self.dist(pts[i,:], pts[i-1,:]) < 15) or (self.dist(pts[i+1,:],pts[i,:]) < 15):
+                try:
+                    cc[idx].append(pts[i,:])
+                    connected = True
+                except IndexError:
+                    cc.append([])
+                    cc[idx].append(pts[i,:])
+                    connected = True
+            else:
+                try:
+                    if len(cc[idx]) < 4:
+                        cc.pop(idx)
+                        idx -= 1
+                    elif connected:
+                        idx += 1
+                        connected = False
+                except IndexError:
+                    pass
+        
+        cc = np.vstack(cc)
         self.total_animal_pixels = self.area(pts[:,0], pts[:,1])
 
     def get_animal_area(self):
